@@ -1,0 +1,361 @@
+'use server'
+
+// =============================================================================
+// createOrder — Pizza Planet Server Action
+// Converts a validated cart + customer info into a pending order in Supabase.
+//
+// Pipeline (per EngineeringStandards §6.1):
+//  1. Authenticate (optional for guest)          ← resolves customer_id if logged in
+//  2. Validate input with Zod
+//  3. Re-validate product availability + prices  ← server-side truth
+//  4. Calculate totals using store_settings      ← never trust client totals
+//  5. Insert orders row
+//  6. Insert order_items rows
+//  7. Insert order_item_customizations rows
+//  8. Return { orderId, orderNumber, trackingToken, totalAmount }
+//
+// Source of truth:
+//   DatabaseDesign.md §2.3 (orders, order_items, order_item_customizations)
+//   API-Specification.md §6 createOrder
+//   EngineeringStandards §6.3 (Zod), §7.6 (security rules)
+// =============================================================================
+
+import { z } from 'zod'
+import { createClient } from '@/lib/supabase/server'
+import { getCurrentUser } from '@/lib/auth/getCurrentUser'
+import type { ActionResponse, CreateOrderResult } from '@/types/order'
+
+// ─── Zod schemas ─────────────────────────────────────────────────────────────
+
+const DeliveryAddressSchema = z.object({
+  flat: z.string().min(1).max(255),
+  landmark: z.string().max(255),
+  area: z.string().min(1).max(255),
+  city: z.string().min(1).max(100),
+  pincode: z.string().regex(/^[1-9][0-9]{5}$/, 'Invalid Indian pincode'),
+})
+
+const CheckoutItemOptionSchema = z.object({
+  optionId: z.string().uuid(),
+  priceSnapshot: z.number().int().nonnegative(),
+})
+
+const CheckoutCartItemSchema = z.object({
+  productId: z.string().uuid(),
+  variantId: z.string().uuid().nullable(),
+  quantity: z.number().int().min(1).max(20),
+  clientUnitPrice: z.number().int().nonnegative(),
+  options: z.array(CheckoutItemOptionSchema).max(20),
+})
+
+const CreateOrderInputSchema = z.object({
+  customerName: z.string().min(1).max(255),
+  customerPhone: z.string().regex(/^\+?[0-9]{10,15}$/, 'Invalid phone number'),
+  customerEmail: z.string().email().max(255).or(z.literal('')),
+  orderType: z.enum(['delivery', 'pickup']),
+  paymentMethod: z.enum(['online', 'cod']),
+  deliveryAddress: DeliveryAddressSchema.nullable(),
+  specialInstructions: z.string().max(500),
+  items: z.array(CheckoutCartItemSchema).min(1).max(20),
+  idempotencyKey: z.string().uuid().optional(),
+})
+
+type CreateOrderInput = z.infer<typeof CreateOrderInputSchema>
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+interface StoreSettings {
+  delivery_fee: number
+  free_delivery_threshold: number
+  tax_rate_percent: number
+  cod_max_order_amount: number
+}
+
+function calculateTax(subtotal: number, taxRatePercent: number): number {
+  return Math.round((subtotal * taxRatePercent) / 100)
+}
+
+function calculateDeliveryFee(
+  subtotal: number,
+  orderType: string,
+  settings: StoreSettings,
+): number {
+  if (orderType === 'pickup') return 0
+  return subtotal >= settings.free_delivery_threshold ? 0 : settings.delivery_fee
+}
+
+// ─── Main action ─────────────────────────────────────────────────────────────
+
+export async function createOrder(
+  raw: unknown,
+): Promise<ActionResponse<CreateOrderResult>> {
+  // ── Step 1: Parse & validate input ────────────────────────────────────────
+  const parsed = CreateOrderInputSchema.safeParse(raw)
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: 'Invalid checkout data. Please check your inputs.',
+      code: 'VALIDATION_ERROR',
+    }
+  }
+
+  const input: CreateOrderInput = parsed.data
+
+  // ── Step 2: Delivery requires address ─────────────────────────────────────
+  if (input.orderType === 'delivery' && !input.deliveryAddress) {
+    return {
+      success: false,
+      error: 'A delivery address is required for delivery orders.',
+      code: 'VALIDATION_ERROR',
+    }
+  }
+
+  // ── Step 3: Init Supabase client (RLS-aware) and resolve optional user ────
+  const supabase = await createClient()
+  const authResult = await getCurrentUser()
+  const customerId = authResult.success ? authResult.data.id : null
+
+  // ── Step 4: Fetch store settings for tax/fee calculation ──────────────────
+  const { data: settingsRow, error: settingsError } = await supabase
+    .from('store_settings')
+    .select('delivery_fee, free_delivery_threshold, tax_rate_percent, cod_max_order_amount')
+    .eq('id', 1)
+    .single()
+
+  if (settingsError || !settingsRow) {
+    return {
+      success: false,
+      error: 'Service configuration error. Please try again.',
+      code: 'INTERNAL_ERROR',
+    }
+  }
+
+  const settings: StoreSettings = settingsRow as StoreSettings
+
+  // ── Step 5: Re-validate each product/variant/option against the database ──
+  const productIds = input.items.map((i) => i.productId)
+
+  const { data: dbProducts, error: productsError } = await supabase
+    .from('products')
+    .select('id, name, base_price, is_available, is_archived')
+    .in('id', productIds)
+    .eq('is_archived', false)
+
+  if (productsError || !dbProducts) {
+    return {
+      success: false,
+      error: 'Failed to verify product availability.',
+      code: 'INTERNAL_ERROR',
+    }
+  }
+
+  const productMap = new Map(dbProducts.map((p) => [p.id, p]))
+
+  // Collect all variant IDs that are non-null
+  const variantIds = input.items
+    .map((i) => i.variantId)
+    .filter((v): v is string => v !== null)
+
+  const variantMap = new Map<string, { id: string; price_adjustment: number; product_id: string }>()
+  if (variantIds.length > 0) {
+    const { data: dbVariants, error: variantsError } = await supabase
+      .from('product_variants')
+      .select('id, price_adjustment, product_id')
+      .in('id', variantIds)
+
+    if (variantsError || !dbVariants) {
+      return {
+        success: false,
+        error: 'Failed to verify product size options.',
+        code: 'INTERNAL_ERROR',
+      }
+    }
+    dbVariants.forEach((v) => variantMap.set(v.id, v))
+  }
+
+  // Collect all customization option IDs
+  const allOptionIds = input.items.flatMap((i) => i.options.map((o) => o.optionId))
+  const optionMap = new Map<string, { id: string; price: number; name: string; is_available: boolean }>()
+
+  if (allOptionIds.length > 0) {
+    const { data: dbOptions, error: optionsError } = await supabase
+      .from('customization_options')
+      .select('id, price, name, is_available')
+      .in('id', allOptionIds)
+
+    if (optionsError || !dbOptions) {
+      return {
+        success: false,
+        error: 'Failed to verify customization options.',
+        code: 'INTERNAL_ERROR',
+      }
+    }
+    dbOptions.forEach((o) => optionMap.set(o.id, o))
+  }
+
+  // ── Step 6: Server-side price recalculation ───────────────────────────────
+  let serverSubtotal = 0
+
+  interface ValidatedItem {
+    productId: string
+    productNameSnapshot: string
+    variantId: string | null
+    quantity: number
+    serverUnitPrice: number
+    options: Array<{ optionId: string; optionNameSnapshot: string; priceSnapshot: number }>
+  }
+
+  const validatedItems: ValidatedItem[] = []
+
+  for (const item of input.items) {
+    const product = productMap.get(item.productId)
+
+    if (!product) {
+      return {
+        success: false,
+        error: `Product is no longer available.`,
+        code: 'NOT_FOUND',
+      }
+    }
+
+    if (!product.is_available) {
+      return {
+        success: false,
+        error: `"${product.name}" is currently out of stock.`,
+        code: 'OUT_OF_STOCK',
+      }
+    }
+
+    let serverUnitPrice = product.base_price
+
+    // Add variant price adjustment
+    if (item.variantId) {
+      const variant = variantMap.get(item.variantId)
+      if (!variant || variant.product_id !== item.productId) {
+        return {
+          success: false,
+          error: `Invalid size selection for "${product.name}".`,
+          code: 'VALIDATION_ERROR',
+        }
+      }
+      serverUnitPrice += variant.price_adjustment
+    }
+
+    // Add customization prices
+    const validatedOptions: ValidatedItem['options'] = []
+    for (const opt of item.options) {
+      const dbOption = optionMap.get(opt.optionId)
+      if (!dbOption) {
+        return {
+          success: false,
+          error: 'A selected customization option is no longer available.',
+          code: 'NOT_FOUND',
+        }
+      }
+      if (!dbOption.is_available) {
+        return {
+          success: false,
+          error: `"${dbOption.name}" is currently unavailable.`,
+          code: 'OUT_OF_STOCK',
+        }
+      }
+      serverUnitPrice += dbOption.price
+      validatedOptions.push({
+        optionId: dbOption.id,
+        optionNameSnapshot: dbOption.name,
+        priceSnapshot: dbOption.price,
+      })
+    }
+
+    // Price mismatch guard — reject if client price diverges by more than ₹1 (100 Paisa rounding tolerance)
+    if (Math.abs(serverUnitPrice - item.clientUnitPrice) > 100) {
+      return {
+        success: false,
+        error: `Price has changed for "${product.name}". Please review your cart.`,
+        code: 'PRICE_MISMATCH',
+      }
+    }
+
+    const itemTotal = serverUnitPrice * item.quantity
+    serverSubtotal += itemTotal
+
+    validatedItems.push({
+      productId: item.productId,
+      productNameSnapshot: product.name,
+      variantId: item.variantId,
+      quantity: item.quantity,
+      serverUnitPrice,
+      options: validatedOptions,
+    })
+  }
+
+  // ── Step 7: Calculate totals using store settings ─────────────────────────
+  const tax = calculateTax(serverSubtotal, Number(settings.tax_rate_percent))
+  const deliveryFee = calculateDeliveryFee(serverSubtotal, input.orderType, settings)
+  const totalAmount = serverSubtotal + tax + deliveryFee
+
+  // Enforce COD limit
+  if (input.paymentMethod === 'cod' && totalAmount > settings.cod_max_order_amount) {
+    return {
+      success: false,
+      error: `Cash on delivery is not available for orders above ₹${settings.cod_max_order_amount / 100}.`,
+      code: 'VALIDATION_ERROR',
+    }
+  }
+
+  // ── Step 8: Insert order atomically via transactional RPC ──────────────────
+  const { data: rpcData, error: rpcError } = await supabase.rpc('create_order_transactional', {
+    p_order_type: input.orderType,
+    p_customer_id: customerId,
+    p_customer_name: input.customerName,
+    p_customer_phone: input.customerPhone,
+    p_customer_email: input.customerEmail || null,
+    p_delivery_address: input.orderType === 'delivery' ? input.deliveryAddress : null,
+    p_special_instructions: input.specialInstructions || null,
+    p_payment_method: input.paymentMethod,
+    p_discount_amount: 0,
+    p_subtotal: serverSubtotal,
+    p_tax: tax,
+    p_delivery_fee: deliveryFee,
+    p_total_amount: totalAmount,
+    p_idempotency_key: input.idempotencyKey || null,
+    p_items: validatedItems.map((item) => ({
+      product_id: item.productId,
+      variant_id: item.variantId,
+      product_name_snapshot: item.productNameSnapshot,
+      quantity: item.quantity,
+      unit_price: item.serverUnitPrice,
+      total_price: item.serverUnitPrice * item.quantity,
+      options: item.options.map((opt) => ({
+        option_id: opt.optionId,
+        option_name_snapshot: opt.optionNameSnapshot,
+        price_snapshot: opt.priceSnapshot,
+      })),
+    })),
+  })
+
+  if (rpcError || !rpcData || rpcData.length === 0) {
+    return {
+      success: false,
+      error: 'Failed to place order. Please try again.',
+      code: 'INTERNAL_ERROR',
+    }
+  }
+
+  const { order_id, short_id, tracking_token } = rpcData[0] as {
+    order_id: string
+    short_id: string
+    tracking_token: string
+  }
+
+  // ── Step 9: Return success ────────────────────────────────────────────────
+  return {
+    success: true,
+    data: {
+      orderId: order_id,
+      orderNumber: short_id,
+      trackingToken: tracking_token,
+      totalAmount,
+    },
+  }
+}

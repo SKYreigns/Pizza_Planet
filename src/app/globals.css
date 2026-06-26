@@ -1,0 +1,95 @@
+@import "tailwindcss";
+
+@plugin "tailwindcss-animate";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --background: #FFF8F0; /* Cream */
+  --foreground: #091D2E; /* Cosmic Slate */
+  --card: #FFF8F0;
+  --card-foreground: #091D2E;
+  --popover: #FFF8F0;
+  --popover-foreground: #091D2E;
+  --primary: #E74C3C; /* Pizza Orange */
+  --primary-foreground: #FFFFFF;
+  --secondary: #091D2E;
+  --secondary-foreground: #FFF8F0;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --accent: #E74C3C;
+  --accent-foreground: #FFFFFF;
+  --destructive: #ef4444;
+  --destructive-foreground: #FFFFFF;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #E74C3C;
+  --radius: 0.5rem;
+  
+  --pizza-orange: #E74C3C;
+  --cosmic-slate: #091D2E;
+  --cream: #FFF8F0;
+}
+
+.dark {
+  --background: #091D2E; /* Cosmic Slate */
+  --foreground: #FFF8F0; /* Cream */
+  --card: #091D2E;
+  --card-foreground: #FFF8F0;
+  --popover: #091D2E;
+  --popover-foreground: #FFF8F0;
+  --primary: #E74C3C; /* Pizza Orange */
+  --primary-foreground: #FFFFFF;
+  --secondary: #1e293b;
+  --secondary-foreground: #FFF8F0;
+  --muted: #1e293b;
+  --muted-foreground: #94a3b8;
+  --accent: #E74C3C;
+  --accent-foreground: #FFFFFF;
+  --destructive: #7f1d1d;
+  --destructive-foreground: #FFFFFF;
+  --border: #1e293b;
+  --input: #1e293b;
+  --ring: #E74C3C;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  .liquid-glass-surface {
+    @apply bg-background/60 backdrop-blur-md backdrop-saturate-150 border border-white/20 dark:border-white/10 shadow-lg isolation-auto;
+  }
+}
