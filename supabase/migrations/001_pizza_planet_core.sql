@@ -276,7 +276,7 @@ CREATE TABLE IF NOT EXISTS public.store_settings (
 
 -- 4.3 categories
 CREATE TABLE IF NOT EXISTS public.categories (
-  id            uuid        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id            uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
   slug          text        NOT NULL,
   name          text        NOT NULL,
   icon_url      text,
@@ -292,7 +292,7 @@ CREATE TABLE IF NOT EXISTS public.categories (
 
 -- 4.4 products
 CREATE TABLE IF NOT EXISTS public.products (
-  id            uuid        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id            uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
   category_id   uuid        NOT NULL REFERENCES public.categories(id) ON DELETE RESTRICT,
   name          text        NOT NULL,
   description   text,
@@ -311,7 +311,7 @@ CREATE TABLE IF NOT EXISTS public.products (
 
 -- 4.5 product_variants (size tiers)
 CREATE TABLE IF NOT EXISTS public.product_variants (
-  id               uuid    PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id               uuid    PRIMARY KEY DEFAULT gen_random_uuid(),
   product_id       uuid    NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
   size_name        text    NOT NULL,
   size_label       text    NOT NULL DEFAULT '',
@@ -323,7 +323,7 @@ CREATE TABLE IF NOT EXISTS public.product_variants (
 
 -- 4.6 customization_options (master list: crusts, sauces, toppings)
 CREATE TABLE IF NOT EXISTS public.customization_options (
-  id           uuid             PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id           uuid             PRIMARY KEY DEFAULT gen_random_uuid(),
   type         public.option_type NOT NULL,
   name         text             NOT NULL,
   description  text,
@@ -347,7 +347,7 @@ CREATE TABLE IF NOT EXISTS public.product_customizations (
 
 -- 4.8 coupons
 CREATE TABLE IF NOT EXISTS public.coupons (
-  id                    uuid               PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id                    uuid               PRIMARY KEY DEFAULT gen_random_uuid(),
   code                  text               NOT NULL,
   description           text,
   discount_type         public.discount_type NOT NULL,
@@ -373,7 +373,7 @@ CREATE TABLE IF NOT EXISTS public.coupons (
 
 -- 4.9 orders — core business transaction
 CREATE TABLE IF NOT EXISTS public.orders (
-  id                  uuid                   PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id                  uuid                   PRIMARY KEY DEFAULT gen_random_uuid(),
   short_id            text                   NOT NULL,
   order_type          public.order_type      NOT NULL DEFAULT 'delivery',
   customer_id         uuid                   REFERENCES public.profiles(id) ON DELETE SET NULL,
@@ -394,7 +394,7 @@ CREATE TABLE IF NOT EXISTS public.orders (
   razorpay_order_id   text,
   razorpay_payment_id text,
   delivery_rider_id   uuid                   REFERENCES public.profiles(id) ON DELETE SET NULL,
-  tracking_token      uuid                   NOT NULL DEFAULT uuid_generate_v4(),
+  tracking_token      uuid                   NOT NULL DEFAULT gen_random_uuid(),
   estimated_ready_at  timestamptz,
   created_at          timestamptz            NOT NULL DEFAULT now(),
 
@@ -422,7 +422,7 @@ CREATE TABLE IF NOT EXISTS public.orders (
 
 -- 4.10 order_items
 CREATE TABLE IF NOT EXISTS public.order_items (
-  id                  uuid    PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id                  uuid    PRIMARY KEY DEFAULT gen_random_uuid(),
   order_id            uuid    NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE,
   product_id          uuid    NOT NULL REFERENCES public.products(id) ON DELETE RESTRICT,
   variant_id          uuid    REFERENCES public.product_variants(id) ON DELETE RESTRICT,
@@ -451,7 +451,7 @@ CREATE TABLE IF NOT EXISTS public.order_item_customizations (
 
 -- 4.12 order_status_log — immutable append-only ledger
 CREATE TABLE IF NOT EXISTS public.order_status_log (
-  id          uuid                 PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id          uuid                 PRIMARY KEY DEFAULT gen_random_uuid(),
   order_id    uuid                 NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE,
   old_status  public.order_status,
   new_status  public.order_status  NOT NULL,
@@ -463,7 +463,7 @@ CREATE TABLE IF NOT EXISTS public.order_status_log (
 
 -- 4.13 payment_log — ledger of Razorpay webhook events
 CREATE TABLE IF NOT EXISTS public.payment_log (
-  id                  uuid                  PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id                  uuid                  PRIMARY KEY DEFAULT gen_random_uuid(),
   order_id            uuid                  NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE,
   razorpay_payment_id text                  NOT NULL,
   razorpay_order_id   text,
@@ -478,7 +478,7 @@ CREATE TABLE IF NOT EXISTS public.payment_log (
 
 -- 4.14 notifications — outbound WhatsApp log
 CREATE TABLE IF NOT EXISTS public.notifications (
-  id                uuid                      PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id                uuid                      PRIMARY KEY DEFAULT gen_random_uuid(),
   order_id          uuid                      NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE,
   phone             text                      NOT NULL,
   notification_type public.notification_type  NOT NULL,
@@ -494,7 +494,7 @@ CREATE TABLE IF NOT EXISTS public.notifications (
 
 -- 4.15 product_audit_log — immutable ledger of menu changes
 CREATE TABLE IF NOT EXISTS public.product_audit_log (
-  id             uuid        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id             uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
   product_id     uuid        NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
   action         text        NOT NULL,
   changed_fields jsonb       NOT NULL DEFAULT '{}',
@@ -506,7 +506,7 @@ CREATE TABLE IF NOT EXISTS public.product_audit_log (
 
 -- 4.16 failed_jobs — dead letter queue for background processing
 CREATE TABLE IF NOT EXISTS public.failed_jobs (
-  id            uuid        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id            uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
   event_name    text        NOT NULL,
   payload       jsonb       NOT NULL DEFAULT '{}',
   error_message text        NOT NULL,

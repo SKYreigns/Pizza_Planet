@@ -10,7 +10,15 @@ export async function getCategories(): Promise<Category[]> {
     .order('display_order', { ascending: true })
 
   if (error) {
-    console.error('Failed to fetch categories:', error)
+    console.error('Failed to fetch categories:', {
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+      code: error.code,
+      status: (error as unknown as Record<string, unknown>).status,
+      statusText: (error as unknown as Record<string, unknown>).statusText,
+      fullError: JSON.stringify(error, Object.getOwnPropertyNames(error)),
+    })
     return []
   }
 
@@ -32,7 +40,15 @@ export async function getProducts(categoryId?: string): Promise<Product[]> {
   const { data, error } = await query
 
   if (error) {
-    console.error('Failed to fetch products:', error)
+    console.error('Failed to fetch products:', {
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+      code: error.code,
+      status: (error as unknown as Record<string, unknown>).status,
+      statusText: (error as unknown as Record<string, unknown>).statusText,
+      fullError: JSON.stringify(error, Object.getOwnPropertyNames(error)),
+    })
     return []
   }
 
@@ -59,7 +75,15 @@ export async function getProductById(id: string): Promise<ProductWithDetails | n
     .single()
 
   if (error) {
-    console.error(`Failed to fetch product by id ${id}:`, error)
+    console.error(`Failed to fetch product by id ${id}:`, {
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+      code: error.code,
+      status: (error as unknown as Record<string, unknown>).status,
+      statusText: (error as unknown as Record<string, unknown>).statusText,
+      fullError: JSON.stringify(error, Object.getOwnPropertyNames(error)),
+    })
     return null
   }
 
