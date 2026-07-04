@@ -7,10 +7,11 @@
 // =============================================================================
 
 import { createClient } from '@/lib/supabase/server'
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
 import { KITCHEN_COOKIE_NAME } from '@/lib/auth/getKitchenSession'
+import { signKitchenCookie } from '@/lib/auth/kitchenCookieSigner'
 
 // ---------------------------------------------------------------------------
 // Rate Limiter for Kitchen PIN (In-memory fallback with sliding window)
@@ -22,14 +23,19 @@ function checkRateLimit(key: string): boolean {
   const now = Date.now()
   const record = pinAttempts.get(key)
   if (!record || now > record.resetAt) {
-    pinAttempts.set(key, { count: 1, resetAt: now + 15 * 60 * 1000 })
     return true
   }
-  if (record.count >= 5) {
-    return false
+  return record.count < 5
+}
+
+function recordFailedAttempt(key: string): void {
+  const now = Date.now()
+  const record = pinAttempts.get(key)
+  if (!record || now > record.resetAt) {
+    pinAttempts.set(key, { count: 1, resetAt: now + 15 * 60 * 1000 })
+  } else {
+    record.count += 1
   }
-  record.count += 1
-  return true
 }
 
 // ---------------------------------------------------------------------------
@@ -53,6 +59,11 @@ export async function signUpWithPhone(phone: string): Promise<AuthActionResponse
   const parsed = PhoneSchema.safeParse(phone)
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues[0].message }
+  }
+
+  // P1-01: Development Authentication Bypass for Test Number (+919999999999)
+  if (process.env.NODE_ENV === 'development' && parsed.data === '+919999999999') {
+    return { success: true }
   }
 
   const supabase = await createClient()
@@ -79,6 +90,35 @@ export async function verifyPhoneOtp(phone: string, otp: string): Promise<AuthAc
   }
 
   const supabase = await createClient()
+
+  // P1-01: Development Authentication Bypass for Test Number (+919999999999 / 123456)
+  if (process.env.NODE_ENV === 'development' && phoneParsed.data === '+919999999999' && otpParsed.data === '123456') {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: 'dev_customer_9999999999@pizzaplanet.in',
+      password: 'customer123',
+    })
+
+    if (error || !data.user) {
+      return { success: false, error: error?.message || 'Development customer account verification failed.' }
+    }
+
+    const { error: profileError } = await supabase.from('profiles').upsert(
+      {
+        id: data.user.id,
+        phone: phoneParsed.data,
+        role: 'customer',
+        full_name: `Customer (${phoneParsed.data.slice(-4)})`,
+      },
+      { onConflict: 'id' }
+    )
+
+    if (profileError) {
+      console.error('Failed to upsert profile during OTP verification:', profileError)
+    }
+
+    return { success: true }
+  }
+
   const { data, error } = await supabase.auth.verifyOtp({
     phone: phoneParsed.data,
     token: otpParsed.data,
@@ -153,7 +193,11 @@ export async function authenticateKitchenPin(pin: string): Promise<AuthActionRes
     return { success: false, error: pinParsed.error.issues[0].message }
   }
 
-  if (!checkRateLimit('kitchen_pin_global')) {
+  const headerStore = await headers()
+  const clientIp = headerStore.get('x-forwarded-for') || headerStore.get('x-real-ip') || 'local_dev'
+  const rateLimitKey = clientIp === 'local_dev' ? `station_${pinParsed.data}` : clientIp
+
+  if (!checkRateLimit(rateLimitKey)) {
     return {
       success: false,
       error: 'Too many failed PIN attempts. Please wait 15 minutes before retrying.',
@@ -166,21 +210,26 @@ export async function authenticateKitchenPin(pin: string): Promise<AuthActionRes
   })
 
   if (error || !data || !Array.isArray(data) || data.length === 0) {
+    recordFailedAttempt(rateLimitKey)
     return { success: false, error: 'Invalid kitchen PIN.' }
   }
 
   const staff = data[0] as { staff_id: string; staff_name: string }
   if (!staff.staff_id) {
+    recordFailedAttempt(rateLimitKey)
     return { success: false, error: 'Invalid kitchen PIN.' }
   }
 
-  // Set HTTP-only session cookie for wall-mounted KDS station
+  pinAttempts.delete(rateLimitKey)
+
+  // Set HTTP-only session cookie for wall-mounted KDS station (HMAC signed)
   const cookieStore = await cookies()
-  const sessionData = JSON.stringify({
+  const rawData = JSON.stringify({
     staffId: staff.staff_id,
     name: staff.staff_name,
     verifiedAt: new Date().toISOString(),
   })
+  const sessionData = await signKitchenCookie(rawData)
 
   cookieStore.set(KITCHEN_COOKIE_NAME, sessionData, {
     httpOnly: true,

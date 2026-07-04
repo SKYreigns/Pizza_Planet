@@ -8,6 +8,7 @@ import { ShoppingBag, User, Menu, X, Sparkles, LogIn } from 'lucide-react'
 import { useCartStore } from '@/stores/cart-store'
 import { useAuth } from '@/providers/AuthProvider'
 import { cn } from '@/lib/utils'
+import { SignOutButton } from '@/components/auth/SignOutButton'
 
 export function Navbar() {
   const pathname = usePathname()
@@ -100,16 +101,19 @@ export function Navbar() {
           <div className="flex items-center gap-3">
             {/* User Profile / Login */}
             {user ? (
-              <Link
-                href="/profile"
-                className="hidden sm:flex items-center gap-2 h-11 px-4 rounded-full border border-black/10 dark:border-white/10 bg-white/60 dark:bg-black/40 text-sm font-medium text-foreground hover:border-primary/40 hover:bg-white dark:hover:bg-black transition-all shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                title={user.full_name || user.email || 'Profile'}
-              >
-                <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
-                  {(user.full_name || user.email || 'U')[0].toUpperCase()}
-                </div>
-                <span className="max-w-[100px] truncate">{user.full_name || 'Account'}</span>
-              </Link>
+              <div className="hidden sm:flex items-center gap-2">
+                <Link
+                  href="/profile"
+                  className="flex items-center gap-2 h-11 px-4 rounded-full border border-black/10 dark:border-white/10 bg-white/60 dark:bg-black/40 text-sm font-medium text-foreground hover:border-primary/40 hover:bg-white dark:hover:bg-black transition-all shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  title={user.full_name || user.email || 'Profile'}
+                >
+                  <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
+                    {(user.full_name || user.email || 'U')[0].toUpperCase()}
+                  </div>
+                  <span className="max-w-[100px] truncate">{user.full_name || 'Account'}</span>
+                </Link>
+                <SignOutButton variant="ghost" className="h-11 px-3 rounded-full hover:bg-black/5 dark:hover:bg-white/5 text-muted-foreground hover:text-destructive" />
+              </div>
             ) : (
               <Link
                 href="/auth/login"
@@ -193,14 +197,19 @@ export function Navbar() {
               
               <div className="pt-3 border-t border-black/5 dark:border-white/5">
                 {user ? (
-                  <Link
-                    href="/profile"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-white/60 dark:bg-black/60 text-foreground font-semibold"
-                  >
-                    <User className="h-5 w-5 text-primary" />
-                    <span>Account Profile ({user.full_name || 'Logged in'})</span>
-                  </Link>
+                  <div className="space-y-2">
+                    <Link
+                      href="/profile"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-white/60 dark:bg-black/60 text-foreground font-semibold"
+                    >
+                      <User className="h-5 w-5 text-primary" />
+                      <span>Account Profile ({user.full_name || 'Logged in'})</span>
+                    </Link>
+                    <div onClick={() => setMobileMenuOpen(false)}>
+                      <SignOutButton variant="destructive" className="w-full justify-start rounded-2xl h-12 text-base font-semibold" />
+                    </div>
+                  </div>
                 ) : (
                   <Link
                     href="/auth/login"

@@ -10,6 +10,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { getRouteGuard, meetsRoleRequirement } from '@/lib/auth/roles'
+import { verifyKitchenCookie } from '@/lib/auth/kitchenCookieSigner'
 import type { UserRole } from '@/types/auth'
 
 // ---------------------------------------------------------------------------
@@ -46,11 +47,13 @@ function buildSupabaseMiddlewareClient(request: NextRequest) {
   return { supabase, getResponse: () => supabaseResponse }
 }
 
-function hasValidKitchenCookie(request: NextRequest): boolean {
+async function hasValidKitchenCookie(request: NextRequest): Promise<boolean> {
   try {
     const cookieVal = request.cookies.get('pp_kitchen_session')?.value
     if (!cookieVal) return false
-    const parsed = JSON.parse(cookieVal)
+    const verifiedPayload = await verifyKitchenCookie(cookieVal)
+    if (!verifiedPayload) return false
+    const parsed = JSON.parse(verifiedPayload)
     return Boolean(parsed.staffId && parsed.name)
   } catch {
     return false
@@ -98,7 +101,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Special KDS station bypass: If accessing /kitchen with valid PIN station cookie, allow!
-  if (guard.prefix === '/kitchen' && hasValidKitchenCookie(request)) {
+  if (guard.prefix === '/kitchen' && (await hasValidKitchenCookie(request))) {
     return getResponse()
   }
 

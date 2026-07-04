@@ -6,6 +6,7 @@
 
 import { cookies } from 'next/headers'
 import type { AuthenticatedUser, AuthResult } from '@/types/auth'
+import { verifyKitchenCookie } from '@/lib/auth/kitchenCookieSigner'
 
 export interface KitchenSessionData {
   staffId: string
@@ -31,7 +32,15 @@ export async function getKitchenSession(): Promise<AuthResult<AuthenticatedUser>
   }
 
   try {
-    const data = JSON.parse(cookie.value) as KitchenSessionData
+    const verifiedPayload = await verifyKitchenCookie(cookie.value)
+    if (!verifiedPayload) {
+      return {
+        success: false,
+        error: { code: 'UNAUTHORIZED', message: 'Tampered or invalid kitchen session cookie signature.' },
+      }
+    }
+
+    const data = JSON.parse(verifiedPayload) as KitchenSessionData
     if (!data.staffId || !data.name) {
       return {
         success: false,

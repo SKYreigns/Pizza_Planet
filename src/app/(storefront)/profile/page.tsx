@@ -1,4 +1,5 @@
 import { requireAuth } from '@/lib/auth'
+import { SignOutButton } from '@/components/auth/SignOutButton'
 
 /**
  * Customer profile page. Requires any authenticated role.
@@ -43,6 +44,9 @@ export default async function ProfilePage() {
           <p className="text-lg font-medium text-foreground capitalize">
             {user.role}
           </p>
+        </div>
+        <div className="pt-6 border-t border-border flex justify-end">
+          <SignOutButton variant="destructive" className="w-full sm:w-auto" />
         </div>
       </section>
     </div>

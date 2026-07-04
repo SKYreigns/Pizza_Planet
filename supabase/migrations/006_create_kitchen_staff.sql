@@ -30,7 +30,7 @@ CREATE POLICY "service_role_kitchen_staff_all"
 
 -- Seed default MVP test PIN '8842' (hashed via pgcrypto crypt with bf/bcrypt salt)
 INSERT INTO public.kitchen_staff (name, pin_hash, is_active)
-VALUES ('Chef Suresh', crypt('8842', gen_salt('bf')), true)
+VALUES ('Chef Suresh', extensions.crypt('8842', extensions.gen_salt('bf')), true)
 ON CONFLICT DO NOTHING;
 
 -- =============================================================================
@@ -51,7 +51,7 @@ AS $$
     ks.name AS staff_name
   FROM public.kitchen_staff ks
   WHERE ks.is_active = true
-    AND ks.pin_hash = crypt(p_pin, ks.pin_hash)
+    AND ks.pin_hash = extensions.crypt(p_pin, ks.pin_hash)
   LIMIT 1;
 $$;
 
