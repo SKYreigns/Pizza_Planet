@@ -15,6 +15,7 @@ import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { User, Truck, MapPin, CreditCard, MessageSquare, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useCartStore } from '@/stores/cart-store'
 import { useCheckoutStore } from '@/stores/checkout-store'
@@ -50,13 +51,13 @@ const CheckoutSchema = z
         ctx.addIssue({ code: 'custom', path: ['flat'], message: 'Flat / House No. is required' })
       }
       if (!data.area.trim()) {
-        ctx.addIssue({ code: 'custom', path: ['area'], message: 'Area is required' })
+        ctx.addIssue({ code: 'custom', path: ['area'], message: 'Area / Locality is required' })
       }
       if (!data.city.trim()) {
         ctx.addIssue({ code: 'custom', path: ['city'], message: 'City is required' })
       }
-      if (!/^[1-9][0-9]{5}$/.test(data.pincode)) {
-        ctx.addIssue({ code: 'custom', path: ['pincode'], message: 'Enter a valid 6-digit pincode' })
+      if (!data.pincode.trim()) {
+        ctx.addIssue({ code: 'custom', path: ['pincode'], message: 'Pincode is required' })
       }
     }
   })
@@ -80,13 +81,13 @@ function Field({
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-sm font-medium">
+      <label htmlFor={id} className="text-sm font-heading font-semibold text-foreground/90">
         {label}
-        {required && <span className="text-destructive ml-1" aria-hidden="true">*</span>}
+        {required && <span className="text-primary ml-1" aria-hidden="true">*</span>}
       </label>
       {children}
       {error && (
-        <p id={`${id}-error`} className="text-xs text-destructive" role="alert">
+        <p id={`${id}-error`} className="text-xs text-destructive font-medium" role="alert">
           {error}
         </p>
       )}
@@ -105,10 +106,10 @@ function TextInput({
       aria-invalid={!!error}
       aria-describedby={error ? `${id}-error` : undefined}
       className={cn(
-        'w-full rounded-xl border bg-card px-4 py-3 text-sm',
-        'placeholder:text-muted-foreground',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
-        error ? 'border-destructive' : 'border-input',
+        'w-full rounded-2xl border border-black/10 dark:border-white/10 bg-white dark:bg-black px-4 py-3.5 text-sm font-body shadow-sm transition-all',
+        'placeholder:text-muted-foreground/60',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary',
+        error ? 'border-destructive focus-visible:ring-destructive' : 'border-black/10 dark:border-white/10',
       )}
       {...props}
     />
@@ -215,17 +216,24 @@ export function CheckoutForm() {
     }
 
     startTransition(async () => {
-      const result = await createOrder(payload)
+      try {
+        const result = await createOrder(payload)
 
-      if (!result.success) {
-        setServerError(result.error)
-        toast.error(result.error)
-        return
+        if (!result.success) {
+          setServerError(result.error)
+          toast.error(result.error)
+          return
+        }
+
+        clearCart()
+        checkoutStore.reset()
+        router.push(`/order-confirmed/${result.data.trackingToken}`)
+      } catch (err) {
+        console.error('Order submission error:', err)
+        const friendlyMsg = 'We encountered a temporary connection error while sending your order to the kitchen. Your cart items are preserved—please try clicking Place Order again.'
+        setServerError(friendlyMsg)
+        toast.error(friendlyMsg)
       }
-
-      clearCart()
-      checkoutStore.reset()
-      router.push(`/order-confirmed/${result.data.trackingToken}`)
     })
   }
 
@@ -233,59 +241,81 @@ export function CheckoutForm() {
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-8">
       {/* Section 1 — Customer Information */}
-      <section aria-labelledby="section-customer" className="liquid-glass-surface rounded-2xl p-6 space-y-5">
-        <h2 id="section-customer" className="font-bold text-lg">Contact Information</h2>
+      <section aria-labelledby="section-customer" className="rounded-[26px] bg-white dark:bg-[#1C1C1F] border border-black/5 dark:border-white/10 p-6 sm:p-8 space-y-6 shadow-sm hover:shadow-md transition-shadow">
+        <div className="flex items-center gap-3 border-b border-black/5 dark:border-white/10 pb-4">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <User className="h-5 w-5" />
+          </div>
+          <div>
+            <h2 id="section-customer" className="font-heading font-extrabold text-xl text-foreground">
+              Contact Information
+            </h2>
+            <p className="text-xs text-muted-foreground font-body">Who is this artisanal creation for?</p>
+          </div>
+        </div>
 
         <Field label="Full Name" id="customerName" error={errors.customerName?.message} required>
           <TextInput
             id="customerName"
-            placeholder="Buzz Lightyear"
+            placeholder="e.g. Buzz Lightyear"
             autoComplete="name"
             error={errors.customerName?.message}
             {...register('customerName')}
           />
         </Field>
 
-        <Field label="Phone Number" id="customerPhone" error={errors.customerPhone?.message} required>
-          <TextInput
-            id="customerPhone"
-            type="tel"
-            placeholder="+91 98765 43210"
-            autoComplete="tel"
-            inputMode="tel"
-            error={errors.customerPhone?.message}
-            {...register('customerPhone')}
-          />
-        </Field>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <Field label="Phone Number" id="customerPhone" error={errors.customerPhone?.message} required>
+            <TextInput
+              id="customerPhone"
+              type="tel"
+              placeholder="+91 98765 43210"
+              autoComplete="tel"
+              inputMode="tel"
+              error={errors.customerPhone?.message}
+              {...register('customerPhone')}
+            />
+          </Field>
 
-        <Field label="Email Address" id="customerEmail" error={errors.customerEmail?.message}>
-          <TextInput
-            id="customerEmail"
-            type="email"
-            placeholder="buzz@starcommand.space (optional)"
-            autoComplete="email"
-            error={errors.customerEmail?.message}
-            {...register('customerEmail')}
-          />
-        </Field>
+          <Field label="Email Address" id="customerEmail" error={errors.customerEmail?.message}>
+            <TextInput
+              id="customerEmail"
+              type="email"
+              placeholder="buzz@starcommand.space"
+              autoComplete="email"
+              error={errors.customerEmail?.message}
+              {...register('customerEmail')}
+            />
+          </Field>
+        </div>
       </section>
 
       {/* Section 2 — Order Type */}
-      <section aria-labelledby="section-order-type" className="liquid-glass-surface rounded-2xl p-6 space-y-5">
-        <h2 id="section-order-type" className="font-bold text-lg">Order Type</h2>
+      <section aria-labelledby="section-order-type" className="rounded-[26px] bg-white dark:bg-[#1C1C1F] border border-black/5 dark:border-white/10 p-6 sm:p-8 space-y-6 shadow-sm hover:shadow-md transition-shadow">
+        <div className="flex items-center gap-3 border-b border-black/5 dark:border-white/10 pb-4">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <Truck className="h-5 w-5" />
+          </div>
+          <div>
+            <h2 id="section-order-type" className="font-heading font-extrabold text-xl text-foreground">
+              Fulfillment Method
+            </h2>
+            <p className="text-xs text-muted-foreground font-body">Choose how you wish to receive your order</p>
+          </div>
+        </div>
 
-        <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Order type">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4" role="radiogroup" aria-label="Order type">
           {(['delivery', 'pickup'] as const).map((type) => {
             const selected = orderType === type
             return (
               <label
                 key={type}
                 className={cn(
-                  'flex flex-col items-center justify-center gap-1 rounded-xl border p-4 cursor-pointer transition-all',
+                  'flex items-center gap-4 rounded-2xl border-2 p-5 cursor-pointer transition-all duration-300',
                   'focus-within:ring-2 focus-within:ring-primary',
                   selected
-                    ? 'border-primary bg-primary/10 ring-1 ring-primary'
-                    : 'border-input bg-card hover:bg-muted',
+                    ? 'border-primary bg-primary/5 shadow-md scale-[1.01]'
+                    : 'border-black/5 dark:border-white/10 bg-muted/30 hover:bg-muted/60 hover:border-black/15 dark:hover:border-white/20',
                 )}
               >
                 <input
@@ -294,10 +324,17 @@ export function CheckoutForm() {
                   className="sr-only"
                   {...register('orderType')}
                 />
-                <span className="text-2xl" aria-hidden="true">
-                  {type === 'delivery' ? '🛵' : '🏠'}
-                </span>
-                <span className="font-semibold capitalize text-sm">{type}</span>
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white dark:bg-black border border-black/5 dark:border-white/10 shadow-sm text-2xl">
+                  {type === 'delivery' ? '🛵' : '🏪'}
+                </div>
+                <div>
+                  <span className="font-heading font-bold text-base capitalize text-foreground block">
+                    {type === 'delivery' ? 'Galactic Delivery' : 'Studio Pickup'}
+                  </span>
+                  <span className="text-xs text-muted-foreground font-body">
+                    {type === 'delivery' ? 'Delivered hot to your door' : 'Pick up from our wood-fired oven'}
+                  </span>
+                </div>
               </label>
             )
           })}
@@ -306,23 +343,33 @@ export function CheckoutForm() {
 
       {/* Section 3 — Delivery Address (conditional) */}
       {orderType === 'delivery' && (
-        <section aria-labelledby="section-address" className="liquid-glass-surface rounded-2xl p-6 space-y-5">
-          <h2 id="section-address" className="font-bold text-lg">Delivery Address</h2>
+        <section aria-labelledby="section-address" className="rounded-[26px] bg-white dark:bg-[#1C1C1F] border border-black/5 dark:border-white/10 p-6 sm:p-8 space-y-6 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-3 border-b border-black/5 dark:border-white/10 pb-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <MapPin className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 id="section-address" className="font-heading font-extrabold text-xl text-foreground">
+                Delivery Address
+              </h2>
+              <p className="text-xs text-muted-foreground font-body">Where should our courier navigate?</p>
+            </div>
+          </div>
 
-          <Field label="Flat / House No." id="flat" error={errors.flat?.message} required>
+          <Field label="Flat / House No. & Building" id="flat" error={errors.flat?.message} required>
             <TextInput
               id="flat"
-              placeholder="Flat 4B, Infinity Tower"
+              placeholder="e.g. Flat 4B, Infinity Tower"
               autoComplete="address-line1"
               error={errors.flat?.message}
               {...register('flat')}
             />
           </Field>
 
-          <Field label="Landmark" id="landmark" error={errors.landmark?.message}>
+          <Field label="Landmark (Optional)" id="landmark" error={errors.landmark?.message}>
             <TextInput
               id="landmark"
-              placeholder="Near Stargate Metro"
+              placeholder="e.g. Near Stargate Metro Station"
               error={errors.landmark?.message}
               {...register('landmark')}
             />
@@ -332,7 +379,7 @@ export function CheckoutForm() {
             <Field label="Area / Locality" id="area" error={errors.area?.message} required>
               <TextInput
                 id="area"
-                placeholder="Sector 7"
+                placeholder="e.g. Sector 42, Galactic District"
                 autoComplete="address-level2"
                 error={errors.area?.message}
                 {...register('area')}
@@ -342,7 +389,7 @@ export function CheckoutForm() {
             <Field label="City" id="city" error={errors.city?.message} required>
               <TextInput
                 id="city"
-                placeholder="Cosmos City"
+                placeholder="e.g. Bengaluru"
                 autoComplete="address-level1"
                 error={errors.city?.message}
                 {...register('city')}
@@ -350,10 +397,10 @@ export function CheckoutForm() {
             </Field>
           </div>
 
-          <Field label="Pincode" id="pincode" error={errors.pincode?.message} required>
+          <Field label="Pincode / Postal Code" id="pincode" error={errors.pincode?.message} required>
             <TextInput
               id="pincode"
-              placeholder="400001"
+              placeholder="e.g. 560001"
               inputMode="numeric"
               maxLength={6}
               error={errors.pincode?.message}
@@ -364,21 +411,31 @@ export function CheckoutForm() {
       )}
 
       {/* Section 4 — Payment */}
-      <section aria-labelledby="section-payment" className="liquid-glass-surface rounded-2xl p-6 space-y-5">
-        <h2 id="section-payment" className="font-bold text-lg">Payment Method</h2>
+      <section aria-labelledby="section-payment" className="rounded-[26px] bg-white dark:bg-[#1C1C1F] border border-black/5 dark:border-white/10 p-6 sm:p-8 space-y-6 shadow-sm hover:shadow-md transition-shadow">
+        <div className="flex items-center gap-3 border-b border-black/5 dark:border-white/10 pb-4">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <CreditCard className="h-5 w-5" />
+          </div>
+          <div>
+            <h2 id="section-payment" className="font-heading font-extrabold text-xl text-foreground">
+              Payment Method
+            </h2>
+            <p className="text-xs text-muted-foreground font-body">All transactions are encrypted and secure</p>
+          </div>
+        </div>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Payment method">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2" role="radiogroup" aria-label="Payment method">
           {(['online', 'cod'] as const).map((method) => {
             const selected = paymentMethod === method
             return (
               <label
                 key={method}
                 className={cn(
-                  'flex items-center gap-3 rounded-xl border p-4 cursor-pointer transition-all',
+                  'flex items-center gap-4 rounded-2xl border-2 p-5 cursor-pointer transition-all duration-300',
                   'focus-within:ring-2 focus-within:ring-primary',
                   selected
-                    ? 'border-primary bg-primary/10 ring-1 ring-primary'
-                    : 'border-input bg-card hover:bg-muted',
+                    ? 'border-primary bg-primary/5 shadow-md scale-[1.01]'
+                    : 'border-black/5 dark:border-white/10 bg-muted/30 hover:bg-muted/60 hover:border-black/15 dark:hover:border-white/20',
                 )}
               >
                 <input
@@ -387,16 +444,16 @@ export function CheckoutForm() {
                   className="sr-only"
                   {...register('paymentMethod')}
                 />
-                <span className="text-2xl" aria-hidden="true">
-                  {method === 'online' ? '📱' : '💵'}
-                </span>
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white dark:bg-black border border-black/5 dark:border-white/10 shadow-sm text-2xl">
+                  {method === 'online' ? '💳' : '💵'}
+                </div>
                 <div>
-                  <p className="font-semibold text-sm">
-                    {method === 'online' ? 'Pay Online' : 'Cash on Delivery'}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {method === 'online' ? 'UPI, Cards, Wallets' : 'Pay when your order arrives'}
-                  </p>
+                  <span className="font-heading font-bold text-base text-foreground block">
+                    {method === 'online' ? 'Pay Online (UPI / Cards)' : 'Cash on Delivery'}
+                  </span>
+                  <span className="text-xs text-muted-foreground font-body">
+                    {method === 'online' ? 'Instant secure digital payment' : 'Pay via cash or UPI at doorstep'}
+                  </span>
                 </div>
               </label>
             )
@@ -405,19 +462,30 @@ export function CheckoutForm() {
       </section>
 
       {/* Special Instructions */}
-      <section aria-labelledby="section-instructions" className="liquid-glass-surface rounded-2xl p-6 space-y-5">
-        <h2 id="section-instructions" className="font-bold text-lg">Special Instructions</h2>
-        <Field label="Any notes for the kitchen?" id="specialInstructions" error={errors.specialInstructions?.message}>
+      <section aria-labelledby="section-instructions" className="rounded-[26px] bg-white dark:bg-[#1C1C1F] border border-black/5 dark:border-white/10 p-6 sm:p-8 space-y-6 shadow-sm hover:shadow-md transition-shadow">
+        <div className="flex items-center gap-3 border-b border-black/5 dark:border-white/10 pb-4">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <MessageSquare className="h-5 w-5" />
+          </div>
+          <div>
+            <h2 id="section-instructions" className="font-heading font-extrabold text-xl text-foreground">
+              Kitchen Instructions
+            </h2>
+            <p className="text-xs text-muted-foreground font-body">Let our master pizzaiolos know any preferences</p>
+          </div>
+        </div>
+
+        <Field label="Special requests or delivery notes" id="specialInstructions" error={errors.specialInstructions?.message}>
           <textarea
             id="specialInstructions"
             rows={3}
             maxLength={500}
-            placeholder="Extra spicy, no onions, ring the doorbell…"
+            placeholder="e.g. Extra crispy crust, oregano packets, ring doorbell gently…"
             aria-describedby={errors.specialInstructions?.message ? 'specialInstructions-error' : undefined}
             className={cn(
-              'w-full rounded-xl border border-input bg-card px-4 py-3 text-sm resize-none',
-              'placeholder:text-muted-foreground',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+              'w-full rounded-2xl border border-black/10 dark:border-white/10 bg-white dark:bg-black px-4 py-3.5 text-sm font-body shadow-sm resize-none transition-all',
+              'placeholder:text-muted-foreground/60',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary',
             )}
             {...register('specialInstructions')}
           />
@@ -428,25 +496,38 @@ export function CheckoutForm() {
       {serverError && (
         <div
           role="alert"
-          className="rounded-xl border border-destructive bg-destructive/10 px-4 py-3 text-sm text-destructive"
+          className="rounded-2xl border border-destructive bg-destructive/10 px-5 py-4 text-sm text-destructive font-semibold flex items-center gap-2"
         >
-          {serverError}
+          <span>⚠️ {serverError}</span>
         </div>
       )}
 
-      {/* Submit */}
-      <button
-        type="submit"
-        disabled={isPending}
-        className={cn(
-          'w-full rounded-xl bg-primary text-primary-foreground font-bold py-4 text-base',
-          'hover:bg-primary/90 transition-colors',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
-          'disabled:opacity-60 disabled:cursor-not-allowed',
-        )}
-      >
-        {isPending ? 'Placing Order…' : 'Place Order'}
-      </button>
+      {/* Submit Button */}
+      <div className="pt-4">
+        <button
+          type="submit"
+          disabled={isPending}
+          className={cn(
+            'w-full rounded-full bg-gradient-to-r from-primary to-[#C93A2F] text-white font-heading font-extrabold py-5 text-lg shadow-xl shadow-primary/25',
+            'hover:shadow-2xl hover:shadow-primary/35 hover:scale-[1.01] active:scale-[0.99] transition-all duration-300',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
+            'disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100',
+            'flex items-center justify-center gap-3'
+          )}
+        >
+          {isPending ? (
+            <>
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              <span>Transmitting Order to Kitchen...</span>
+            </>
+          ) : (
+            <>
+              <Sparkles className="h-5 w-5 fill-white animate-pulse" />
+              <span>Place Artisanal Order Now</span>
+            </>
+          )}
+        </button>
+      </div>
     </form>
   )
 }

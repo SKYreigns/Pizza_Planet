@@ -1,24 +1,16 @@
 'use client'
 
-// =============================================================================
-// CartSummary — price breakdown panel for the Cart page
-// Delivery: free above ₹499 (49900 Paisa), else ₹49 (4900 Paisa)
-// Tax: 5% GST (matches store_settings default)
-// Source of truth: PRD.md CJ-3, DatabaseDesign §2.4 store_settings
-// =============================================================================
-
 import Link from 'next/link'
-import { ShoppingBag, Trash2 } from 'lucide-react'
+import { ShoppingBag, Trash2, ShieldCheck, Truck, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useCartStore } from '@/stores/cart-store'
 import { DELIVERY_FEE_PAISA, FREE_DELIVERY_THRESHOLD, TAX_RATE } from '@/lib/constants/pricing'
-
 
 export function CartSummary() {
   const { items, getSubtotal, clearCart } = useCartStore()
   const subtotal = getSubtotal()
 
-  const deliveryFee = subtotal >= FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_FEE_PAISA
+  const deliveryFee = subtotal >= FREE_DELIVERY_THRESHOLD || subtotal === 0 ? 0 : DELIVERY_FEE_PAISA
   const tax = Math.round(subtotal * TAX_RATE)
   const estimatedTotal = subtotal + deliveryFee + tax
 
@@ -27,66 +19,89 @@ export function CartSummary() {
   if (items.length === 0) return null
 
   return (
-    <div className="liquid-glass-surface rounded-2xl p-6 space-y-4 sticky top-6">
-      <h2 className="font-bold text-lg">Order Summary</h2>
+    <div className="rounded-[26px] bg-white dark:bg-[#1C1C1F] border border-black/5 dark:border-white/10 p-6 sm:p-8 space-y-6 shadow-xl sticky top-28">
+      <div className="flex items-center justify-between border-b border-black/5 dark:border-white/10 pb-4">
+        <h2 className="font-heading font-extrabold text-xl text-foreground">Order Summary</h2>
+        <span className="text-xs font-mono font-bold bg-primary/10 text-primary px-3 py-1 rounded-full">
+          {items.length} {items.length === 1 ? 'Pie' : 'Pies'}
+        </span>
+      </div>
+
+      {/* Free Delivery Status */}
+      <div className="p-3.5 rounded-2xl bg-[#F9F6F2] dark:bg-black/40 border border-black/5 dark:border-white/5 flex items-center gap-3 text-xs">
+        <Truck className="h-5 w-5 text-primary shrink-0" />
+        <div className="font-body">
+          {deliveryFee === 0 ? (
+            <span className="font-bold text-green-600 dark:text-green-400 flex items-center gap-1">
+              <Sparkles className="h-3.5 w-3.5" /> Free Galactic Delivery Applied!
+            </span>
+          ) : (
+            <span>
+              Add <strong className="text-primary">{fmt(FREE_DELIVERY_THRESHOLD - subtotal)}</strong> more for Free Delivery
+            </span>
+          )}
+        </div>
+      </div>
 
       {/* Line items */}
-      <dl className="space-y-2 text-sm">
+      <dl className="space-y-3 text-sm font-body">
         <div className="flex justify-between">
           <dt className="text-muted-foreground">Subtotal</dt>
-          <dd className="font-medium">{fmt(subtotal)}</dd>
+          <dd className="font-semibold text-foreground">{fmt(subtotal)}</dd>
         </div>
 
         <div className="flex justify-between">
-          <dt className="text-muted-foreground">Delivery</dt>
-          <dd className={cn('font-medium', deliveryFee === 0 && 'text-primary')}>
-            {deliveryFee === 0 ? 'Free' : fmt(deliveryFee)}
+          <dt className="text-muted-foreground">Delivery Fee</dt>
+          <dd className={cn('font-semibold', deliveryFee === 0 ? 'text-green-600 dark:text-green-400' : 'text-foreground')}>
+            {deliveryFee === 0 ? 'FREE' : fmt(deliveryFee)}
           </dd>
         </div>
 
-        {deliveryFee > 0 && (
-          <p className="text-xs text-muted-foreground">
-            Free delivery on orders above {fmt(FREE_DELIVERY_THRESHOLD)}
-          </p>
-        )}
-
         <div className="flex justify-between">
-          <dt className="text-muted-foreground">Tax (GST 5%)</dt>
-          <dd className="font-medium">{fmt(tax)}</dd>
+          <dt className="text-muted-foreground">Estimated Tax (GST 5%)</dt>
+          <dd className="font-semibold text-foreground">{fmt(tax)}</dd>
         </div>
 
-        <div className="flex justify-between border-t border-border pt-3 mt-2">
-          <dt className="font-bold text-base">Estimated Total</dt>
-          <dd className="font-bold text-base text-primary">{fmt(estimatedTotal)}</dd>
+        <div className="flex justify-between border-t border-black/10 dark:border-white/10 pt-4 mt-2">
+          <dt className="font-heading font-extrabold text-lg text-foreground">Estimated Total</dt>
+          <dd className="font-heading font-black text-2xl text-primary">{fmt(estimatedTotal)}</dd>
         </div>
       </dl>
 
       {/* Actions */}
-      <Link
-        href="/checkout"
-        className={cn(
-          'flex w-full items-center justify-center gap-2 rounded-xl',
-          'bg-primary text-primary-foreground font-semibold py-4',
-          'hover:bg-primary/90 transition-colors',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
-        )}
-      >
-        <ShoppingBag className="h-5 w-5" />
-        Proceed to Checkout
-      </Link>
+      <div className="space-y-3 pt-2">
+        <Link
+          href="/checkout"
+          className={cn(
+            'flex w-full items-center justify-center gap-2 rounded-full',
+            'bg-gradient-to-r from-primary to-[#C93A2F] text-white font-heading font-bold py-4 text-base shadow-lg shadow-primary/25',
+            'hover:shadow-xl hover:shadow-primary/30 hover:scale-[1.02] active:scale-[0.98] transition-all',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
+          )}
+        >
+          <ShoppingBag className="h-5 w-5" />
+          <span>Proceed to Checkout</span>
+        </Link>
 
-      <button
-        onClick={clearCart}
-        className={cn(
-          'flex w-full items-center justify-center gap-2 rounded-xl',
-          'border border-border py-3 text-sm text-muted-foreground',
-          'hover:border-destructive hover:text-destructive hover:bg-destructive/5 transition-colors',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive',
-        )}
-      >
-        <Trash2 className="h-4 w-4" />
-        Clear Cart
-      </button>
+        <button
+          onClick={clearCart}
+          className={cn(
+            'flex w-full items-center justify-center gap-2 rounded-full',
+            'border border-black/10 dark:border-white/10 py-3 text-xs font-semibold text-muted-foreground',
+            'hover:border-destructive hover:text-destructive hover:bg-destructive/5 transition-all',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive',
+          )}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+          <span>Clear All Items</span>
+        </button>
+      </div>
+
+      {/* Security Guarantee */}
+      <div className="flex items-center justify-center gap-2 text-[11px] text-muted-foreground font-body text-center pt-2 border-t border-black/5 dark:border-white/5">
+        <ShieldCheck className="h-4 w-4 text-green-600 shrink-0" />
+        <span>100% Secure Transaction & Live KDS Tracking</span>
+      </div>
     </div>
   )
 }

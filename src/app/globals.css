@@ -5,55 +5,57 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: #FFF8F0; /* Cream */
-  --foreground: #091D2E; /* Cosmic Slate */
-  --card: #FFF8F0;
-  --card-foreground: #091D2E;
-  --popover: #FFF8F0;
-  --popover-foreground: #091D2E;
-  --primary: #E74C3C; /* Pizza Orange */
+  --background: #F9F6F2; /* Warm parchment off-white */
+  --foreground: #1B1B1D; /* Soft black */
+  --card: #FFFFFF; /* Surface Elevated */
+  --card-foreground: #1B1B1D;
+  --popover: #FFFFFF;
+  --popover-foreground: #1B1B1D;
+  --primary: #E85A3A; /* Pizza Orange */
   --primary-foreground: #FFFFFF;
-  --secondary: #091D2E;
-  --secondary-foreground: #FFF8F0;
-  --muted: #f1f5f9;
-  --muted-foreground: #64748b;
-  --accent: #E74C3C;
+  --secondary: #F0EDEF; /* Surface container */
+  --secondary-foreground: #1B1B1D;
+  --muted: #F6F3F5;
+  --muted-foreground: #5C5C5C;
+  --accent: #E85A3A;
   --accent-foreground: #FFFFFF;
-  --destructive: #ef4444;
+  --destructive: #BA1A1A;
   --destructive-foreground: #FFFFFF;
-  --border: #e2e8f0;
-  --input: #e2e8f0;
-  --ring: #E74C3C;
-  --radius: 0.5rem;
+  --border: #E8E4DE;
+  --input: #E8E4DE;
+  --ring: #E85A3A;
+  --radius: 1.375rem; /* 22px cards */
   
-  --pizza-orange: #E74C3C;
-  --cosmic-slate: #091D2E;
-  --cream: #FFF8F0;
+  --pizza-orange: #E85A3A;
+  --cosmic-slate: #1B1B1D;
+  --cream: #F9F6F2;
 }
 
 .dark {
-  --background: #091D2E; /* Cosmic Slate */
-  --foreground: #FFF8F0; /* Cream */
-  --card: #091D2E;
-  --card-foreground: #FFF8F0;
-  --popover: #091D2E;
-  --popover-foreground: #FFF8F0;
-  --primary: #E74C3C; /* Pizza Orange */
+  --background: #121214; /* Deep graphite / obsidian */
+  --foreground: #F9F6F2;
+  --card: #1C1C1F;
+  --card-foreground: #F9F6F2;
+  --popover: #1C1C1F;
+  --popover-foreground: #F9F6F2;
+  --primary: #E85A3A; /* Pizza Orange */
   --primary-foreground: #FFFFFF;
-  --secondary: #1e293b;
-  --secondary-foreground: #FFF8F0;
-  --muted: #1e293b;
-  --muted-foreground: #94a3b8;
-  --accent: #E74C3C;
+  --secondary: #2A2A2E;
+  --secondary-foreground: #F9F6F2;
+  --muted: #2A2A2E;
+  --muted-foreground: #A0A0A5;
+  --accent: #E85A3A;
   --accent-foreground: #FFFFFF;
-  --destructive: #7f1d1d;
-  --destructive-foreground: #FFFFFF;
-  --border: #1e293b;
-  --input: #1e293b;
-  --ring: #E74C3C;
+  --destructive: #FFDAD6;
+  --destructive-foreground: #93000A;
+  --border: #2A2A2E;
+  --input: #2A2A2E;
+  --ring: #E85A3A;
 }
 
 @theme inline {
+  --font-heading: var(--font-geist), sans-serif;
+  --font-body: var(--font-inter), sans-serif;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -73,10 +75,11 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --radius-sm: 0.875rem; /* 14px for buttons */
+  --radius-md: 1rem; /* 16px for inputs */
+  --radius-lg: var(--radius); /* 22px for cards */
+  --radius-xl: 2rem; /* 32px for modals */
+  --radius-2xl: 2.5rem;
 }
 
 @layer base {
@@ -84,12 +87,21 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-body;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading tracking-tight;
   }
 }
 
 @layer utilities {
   .liquid-glass-surface {
-    @apply bg-background/60 backdrop-blur-md backdrop-saturate-150 border border-white/20 dark:border-white/10 shadow-lg isolation-auto;
+    @apply bg-white/80 dark:bg-black/75 backdrop-blur-xl backdrop-saturate-150 border border-black/5 dark:border-white/10 shadow-[0_20px_40px_rgba(0,0,0,0.03)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.2)] isolation-auto;
+  }
+  .nav-glass {
+    @apply bg-[#F9F6F2]/85 dark:bg-[#121214]/85 backdrop-blur-xl border-b border-black/5 dark:border-white/10;
+  }
+  .hover-lift {
+    @apply transition-all duration-300 hover:-translate-y-1.5 hover:shadow-[0_20px_40px_rgba(0,0,0,0.06)] dark:hover:shadow-[0_20px_40px_rgba(0,0,0,0.3)];
   }
 }

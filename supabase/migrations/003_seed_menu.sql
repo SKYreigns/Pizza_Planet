@@ -189,20 +189,21 @@ BEGIN
   -- ===========================================================================
   -- STEP 4: PRODUCTS
   -- ===========================================================================
-  INSERT INTO public.products (id, category_id, name, description, base_price, is_veg, is_available, is_archived, display_order)
+  INSERT INTO public.products (id, category_id, name, description, base_price, image_url, is_veg, is_available, is_archived, display_order)
   VALUES
-    (v_prod_margherita,    v_cat_classic,   'Margherita Classico',    'San Marzano tomato sauce, fresh buffalo mozzarella, fragrant basil, and a drizzle of extra virgin olive oil on a hand-tossed crust. Timeless for a reason.', 24900, true,  true, false, 1),
-    (v_prod_pepperoni,     v_cat_signature, 'Hot Honey Pepperoni',    'Cupped pepperoni crisped to the edges, pooled in their own spice, hit with a finishing drizzle of artisan hot honey. Sweet. Smoky. Absolutely savage.', 31900, false, true, false, 1),
-    (v_prod_truffle,       v_cat_signature, 'Truffle Fungi Bianca',   'White garlic cream base, wild mushroom medley, ricotta dollops, aged parmesan, finished with black truffle oil. No tomato. No apologies.', 37900, true,  true, false, 2),
-    (v_prod_garlic_bread,  v_cat_sides,     'Galactic Garlic Bread',  'Crispy French baguette slices topped with garlic butter, Italian herbs, and melted mozzarella cheese.', 14900, true,  true, false, 1),
-    (v_prod_cheese_sticks, v_cat_sides,     'Meteorite Cheese Sticks','Oven-baked dough sticks stuffed with gooey mozzarella and parmesan, served with spicy marinara dip.', 17900, true,  true, false, 2),
-    (v_prod_cola,          v_cat_beverages, 'Supernova Cola',         '330ml chilled fizzy cola with a refreshing citrus kick. Truly out of this world.', 6900,  true,  true, false, 1),
-    (v_prod_iced_tea,      v_cat_beverages, 'Nebula Iced Tea',        'Freshly brewed peach iced tea infused with fresh mint and lemon.', 8900,  true,  true, false, 2)
+    (v_prod_margherita,    v_cat_classic,   'Margherita Classico',    'San Marzano tomato sauce, fresh buffalo mozzarella, fragrant basil, and a drizzle of extra virgin olive oil on a hand-tossed crust. Timeless for a reason.', 24900, '/images/menu/margherita_classico.png', true,  true, false, 1),
+    (v_prod_pepperoni,     v_cat_signature, 'Hot Honey Pepperoni',    'Cupped pepperoni crisped to the edges, pooled in their own spice, hit with a finishing drizzle of artisan hot honey. Sweet. Smoky. Absolutely savage.', 31900, '/images/menu/hot_honey_pepperoni.png', false, true, false, 1),
+    (v_prod_truffle,       v_cat_signature, 'Truffle Fungi Bianca',   'White garlic cream base, wild mushroom medley, ricotta dollops, aged parmesan, finished with black truffle oil. No tomato. No apologies.', 37900, '/images/menu/truffle_fungi_bianca.png', true,  true, false, 2),
+    (v_prod_garlic_bread,  v_cat_sides,     'Galactic Garlic Bread',  'Crispy French baguette slices topped with garlic butter, Italian herbs, and melted mozzarella cheese.', 14900, '/images/menu/galactic_garlic_bread.png', true,  true, false, 1),
+    (v_prod_cheese_sticks, v_cat_sides,     'Meteorite Cheese Sticks','Oven-baked dough sticks stuffed with gooey mozzarella and parmesan, served with spicy marinara dip.', 17900, '/images/menu/meteorite_cheese_sticks.png', true,  true, false, 2),
+    (v_prod_cola,          v_cat_beverages, 'Supernova Cola',         '330ml chilled fizzy cola with a refreshing citrus kick. Truly out of this world.', 6900,  null, true,  true, false, 1),
+    (v_prod_iced_tea,      v_cat_beverages, 'Nebula Iced Tea',        'Freshly brewed peach iced tea infused with fresh mint and lemon.', 8900,  null, true,  true, false, 2)
   ON CONFLICT (id) DO UPDATE SET
     category_id   = EXCLUDED.category_id,
     name          = EXCLUDED.name,
     description   = EXCLUDED.description,
     base_price    = EXCLUDED.base_price,
+    image_url     = EXCLUDED.image_url,
     is_veg        = EXCLUDED.is_veg,
     is_available  = EXCLUDED.is_available,
     is_archived   = EXCLUDED.is_archived,

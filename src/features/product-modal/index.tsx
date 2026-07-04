@@ -57,21 +57,28 @@ export function ProductModal() {
     if (isOpen && productId) {
       setIsLoading(true)
       const fetchProduct = async () => {
-        const supabase = createClient()
-        const { data, error } = await supabase
-          .from('products')
-          .select(`
-            *,
-            variants:product_variants(*),
-            customizations:product_customizations(
+        try {
+          const supabase = createClient()
+          const { data, error } = await supabase
+            .from('products')
+            .select(`
               *,
-              customization_option:customization_options(*)
-            )
-          `)
-          .eq('id', productId)
-          .single()
-        
-        if (!error && data) {
+              variants:product_variants(*),
+              customizations:product_customizations(
+                *,
+                customization_option:customization_options(*)
+              )
+            `)
+            .eq('id', productId)
+            .single()
+          
+          if (error || !data) {
+            console.error('Modal fetch error:', error)
+            toast.error('Could not load item details. Please try again.')
+            closeModal()
+            return
+          }
+
           const fetchedProduct = data as ProductWithDetails
           if (fetchedProduct.customizations) {
             // Filter available options
@@ -121,8 +128,13 @@ export function ProductModal() {
           setSelectedCrustId(defaultCrust)
           setSelectedSauceId(defaultSauce)
           setSelectedToppings(initialToppings)
+        } catch (err) {
+          console.error('Unexpected error fetching product:', err)
+          toast.error('We encountered a temporary connection issue.')
+          closeModal()
+        } finally {
+          setIsLoading(false)
         }
-        setIsLoading(false)
       }
       fetchProduct()
     } else {
@@ -178,39 +190,44 @@ export function ProductModal() {
   const handleAddToCart = () => {
     if (!product) return
 
-    const cartOptions: CartItemOption[] = []
+    try {
+      const cartOptions: CartItemOption[] = []
 
-    // Add selected crust option
-    const selectedCrust = crustOptions.find(c => c.customization_option?.id === selectedCrustId)
-      ?.customization_option
-    if (selectedCrust) {
-      cartOptions.push({ option: selectedCrust })
-    }
-
-    // Add selected sauce option
-    const selectedSauce = sauceOptions.find(c => c.customization_option?.id === selectedSauceId)
-      ?.customization_option
-    if (selectedSauce) {
-      cartOptions.push({ option: selectedSauce })
-    }
-
-    // Add selected topping options
-    toppingOptions.forEach((c) => {
-      if (c.customization_option && selectedToppings[c.customization_option.id]) {
-        cartOptions.push({ option: c.customization_option })
+      // Add selected crust option
+      const selectedCrust = crustOptions.find(c => c.customization_option?.id === selectedCrustId)
+        ?.customization_option
+      if (selectedCrust) {
+        cartOptions.push({ option: selectedCrust })
       }
-    })
 
-    addItem({
-      product,
-      variant: selectedVariant || undefined,
-      options: cartOptions,
-      quantity,
-      unitPrice,
-    })
+      // Add selected sauce option
+      const selectedSauce = sauceOptions.find(c => c.customization_option?.id === selectedSauceId)
+        ?.customization_option
+      if (selectedSauce) {
+        cartOptions.push({ option: selectedSauce })
+      }
 
-    toast.success(`Added ${product.name} to cart!`)
-    closeModal()
+      // Add selected topping options
+      toppingOptions.forEach((c) => {
+        if (c.customization_option && selectedToppings[c.customization_option.id]) {
+          cartOptions.push({ option: c.customization_option })
+        }
+      })
+
+      addItem({
+        product,
+        variant: selectedVariant || undefined,
+        options: cartOptions,
+        quantity,
+        unitPrice,
+      })
+
+      toast.success(`Added ${product.name} to cart!`)
+      closeModal()
+    } catch (err) {
+      console.error('Add to cart error:', err)
+      toast.error('Could not add item to cart. Please try again.')
+    }
   }
 
   return (

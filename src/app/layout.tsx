@@ -1,20 +1,20 @@
 import type { Metadata } from 'next'
-import { Plus_Jakarta_Sans, Manrope } from 'next/font/google'
+import { Geist, Inter } from 'next/font/google'
 import './globals.css'
 import { AuthProvider } from '@/providers/AuthProvider'
 import { getCurrentUser } from '@/lib/auth/getCurrentUser'
 import type { SessionUser } from '@/types/auth'
 import { Toaster } from 'sonner'
 
-const plusJakartaSans = Plus_Jakarta_Sans({
-  variable: '--font-sans',
+const geist = Geist({
+  variable: '--font-geist',
   subsets: ['latin'],
   weight: ['400', '500', '600', '700', '800'],
   display: 'swap',
 })
 
-const manrope = Manrope({
-  variable: '--font-body',
+const inter = Inter({
+  variable: '--font-inter',
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
   display: 'swap',
@@ -57,7 +57,7 @@ export default async function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${plusJakartaSans.variable} ${manrope.variable} font-body antialiased bg-background text-foreground`}
+        className={`${geist.variable} ${inter.variable} font-body antialiased bg-background text-foreground`}
       >
         <AuthProvider initialUser={sessionUser}>{children}</AuthProvider>
         <Toaster richColors position="top-right" />

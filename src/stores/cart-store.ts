@@ -18,18 +18,23 @@ export interface CartItem {
 
 interface CartState {
   items: CartItem[]
+  isOpen: boolean
   addItem: (item: Omit<CartItem, 'cartItemId' | 'totalPrice'>) => void
   removeItem: (cartItemId: string) => void
   updateQuantity: (cartItemId: string, quantity: number) => void
   clearCart: () => void
   getSubtotal: () => number
   getItemCount: () => number
+  openCart: () => void
+  closeCart: () => void
+  toggleCart: () => void
 }
 
 export const useCartStore = create<CartState>()(
   persist(
     (set, get) => ({
       items: [],
+      isOpen: false,
       
       addItem: (item) => set((state) => {
         // Find if there is an existing item with the exact same product, variant, and options
@@ -57,14 +62,15 @@ export const useCartStore = create<CartState>()(
             totalPrice: existingItem.unitPrice * newQuantity
           }
           
-          return { items: updatedItems }
+          return { items: updatedItems, isOpen: true }
         }
 
         const cartItemId = crypto.randomUUID()
         const totalPrice = item.unitPrice * item.quantity
         
         return {
-          items: [...state.items, { ...item, cartItemId, totalPrice }]
+          items: [...state.items, { ...item, cartItemId, totalPrice }],
+          isOpen: true
         }
       }),
       
@@ -99,10 +105,15 @@ export const useCartStore = create<CartState>()(
       
       getItemCount: () => {
         return get().items.reduce((count, item) => count + item.quantity, 0)
-      }
+      },
+
+      openCart: () => set({ isOpen: true }),
+      closeCart: () => set({ isOpen: false }),
+      toggleCart: () => set((state) => ({ isOpen: !state.isOpen })),
     }),
     {
       name: 'pizza-planet-cart',
+      partialize: (state) => ({ items: state.items }),
     }
   )
 )
