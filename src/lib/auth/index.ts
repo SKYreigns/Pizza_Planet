@@ -4,6 +4,7 @@
 // =============================================================================
 
 export { getCurrentUser, getCurrentUserOrThrow } from '@/lib/auth/getCurrentUser'
+export { getKitchenSession, KITCHEN_COOKIE_NAME } from '@/lib/auth/getKitchenSession'
 export {
   enforceRole,
   enforceMinimumRole,

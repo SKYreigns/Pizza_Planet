@@ -46,6 +46,17 @@ function buildSupabaseMiddlewareClient(request: NextRequest) {
   return { supabase, getResponse: () => supabaseResponse }
 }
 
+function hasValidKitchenCookie(request: NextRequest): boolean {
+  try {
+    const cookieVal = request.cookies.get('pp_kitchen_session')?.value
+    if (!cookieVal) return false
+    const parsed = JSON.parse(cookieVal)
+    return Boolean(parsed.staffId && parsed.name)
+  } catch {
+    return false
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Role resolution from profiles table
 // Runs only on guarded routes to avoid an unnecessary DB query per request.
@@ -83,6 +94,11 @@ export async function middleware(request: NextRequest) {
 
   // Public route — no further checks needed
   if (!guard) {
+    return getResponse()
+  }
+
+  // Special KDS station bypass: If accessing /kitchen with valid PIN station cookie, allow!
+  if (guard.prefix === '/kitchen' && hasValidKitchenCookie(request)) {
     return getResponse()
   }
 

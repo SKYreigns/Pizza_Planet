@@ -6,6 +6,7 @@
 
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth/getCurrentUser'
+import { getKitchenSession } from '@/lib/auth/getKitchenSession'
 import { isOneOf, hasPermission } from '@/lib/auth/permissions'
 import { meetsRoleRequirement } from '@/lib/auth/roles'
 import type {
@@ -166,6 +167,10 @@ export async function requireOwner(): Promise<AuthenticatedUser> {
  * Enforces kitchen or owner access. Convenience wrapper.
  */
 export async function requireKitchen(): Promise<AuthenticatedUser> {
+  const kitchenSession = await getKitchenSession()
+  if (kitchenSession.success) {
+    return kitchenSession.data
+  }
   return requireRole(['kitchen', 'owner'], '/auth/kitchen')
 }
 

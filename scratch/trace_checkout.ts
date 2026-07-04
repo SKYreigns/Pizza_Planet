@@ -87,7 +87,7 @@ async function runTrace() {
     const result = await createOrder(payload)
     console.log('\n3. Result from createOrder:')
     console.log(JSON.stringify(result, null, 2))
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('\n3. createOrder threw an exception:')
     console.error(err)
   }

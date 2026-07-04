@@ -3,12 +3,11 @@
 import { useState, type FormEvent } from 'react'
 import { signInWithEmail } from '@/actions/auth'
 
-interface LoginFormProps {
-  /** If present, redirect here after successful login */
+interface AdminLoginFormProps {
   next?: string
 }
 
-export default function LoginForm({ next }: LoginFormProps) {
+export default function AdminLoginForm({ next }: AdminLoginFormProps) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -20,13 +19,12 @@ export default function LoginForm({ next }: LoginFormProps) {
     setIsLoading(true)
 
     try {
-      const result = await signInWithEmail(email.trim(), password, next)
+      const result = await signInWithEmail(email.trim(), password, next || '/admin')
       if (!result.success) {
-        setError(result.error || 'Sign in failed. Please try again.')
+        setError(result.error || 'Sign in failed. Please check your admin credentials.')
         setIsLoading(false)
       }
     } catch (err: unknown) {
-      // In Next.js, redirect() throws a NEXT_REDIRECT error which is handled by App Router
       if (err instanceof Error && err.message.includes('NEXT_REDIRECT')) {
         return
       }
@@ -39,7 +37,7 @@ export default function LoginForm({ next }: LoginFormProps) {
     <form
       onSubmit={handleSubmit}
       className="space-y-5"
-      aria-label="Admin sign-in form"
+      aria-label="Owner sign-in form"
       noValidate
     >
       {error && (
@@ -54,13 +52,13 @@ export default function LoginForm({ next }: LoginFormProps) {
 
       <div className="space-y-1">
         <label
-          htmlFor="email"
+          htmlFor="admin-email"
           className="block text-sm font-medium text-foreground"
         >
-          Email address
+          Owner Email
         </label>
         <input
-          id="email"
+          id="admin-email"
           type="email"
           autoComplete="email"
           required
@@ -75,13 +73,13 @@ export default function LoginForm({ next }: LoginFormProps) {
 
       <div className="space-y-1">
         <label
-          htmlFor="password"
+          htmlFor="admin-password"
           className="block text-sm font-medium text-foreground"
         >
           Password
         </label>
         <input
-          id="password"
+          id="admin-password"
           type="password"
           autoComplete="current-password"
           required
@@ -100,7 +98,7 @@ export default function LoginForm({ next }: LoginFormProps) {
         className="w-full rounded-lg bg-primary text-primary-foreground font-semibold py-3 text-base hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
         aria-busy={isLoading}
       >
-        {isLoading ? 'Signing in…' : 'Sign in'}
+        {isLoading ? 'Authenticating Owner…' : 'Access Admin Dashboard'}
       </button>
     </form>
   )

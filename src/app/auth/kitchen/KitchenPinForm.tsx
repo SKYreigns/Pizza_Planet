@@ -1,15 +1,11 @@
 'use client'
 
 import { useState, type FormEvent } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
+import { authenticateKitchenPin } from '@/actions/auth'
 
 const VALID_PIN_PATTERN = /^\d{4,6}$/
 
 export default function KitchenPinForm() {
-  const router = useRouter()
-  const supabase = createClient()
-
   const [pin, setPin] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -25,24 +21,19 @@ export default function KitchenPinForm() {
 
     setIsLoading(true)
 
-    // Kitchen PIN login: the PIN is stored as a hashed value in the
-    // kitchen_staff table (Phase 2). For MVP, kitchen staff are provisioned
-    // as regular Supabase Auth accounts with email pattern
-    // kitchen-<pin>@pizzaplanet.internal and the PIN as password.
-    const email = `kitchen-${pin}@pizzaplanet.internal`
-    const { error: authError } = await supabase.auth.signInWithPassword({
-      email,
-      password: pin,
-    })
-
-    if (authError) {
-      setError('Invalid PIN. Please try again.')
+    try {
+      const result = await authenticateKitchenPin(pin)
+      if (!result.success) {
+        setError(result.error || 'Invalid PIN. Please try again.')
+        setIsLoading(false)
+      }
+    } catch (err: unknown) {
+      if (err instanceof Error && err.message.includes('NEXT_REDIRECT')) {
+        return
+      }
+      setError('An unexpected error occurred. Please try again.')
       setIsLoading(false)
-      return
     }
-
-    router.push('/kitchen')
-    router.refresh()
   }
 
   return (
