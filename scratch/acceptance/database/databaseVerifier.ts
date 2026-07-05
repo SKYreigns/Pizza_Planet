@@ -244,17 +244,18 @@ export class DatabaseVerifier {
     return data?.status || null
   }
 
-  public async seedTestOrder(status: string = 'pending_payment', orderType: string = 'delivery'): Promise<string | null> {
+  public async seedTestOrder(status: string = 'pending_payment', orderType: string = 'delivery', version: number = 1): Promise<string | null> {
     if (!this.supabase) return null
     const { data, error } = await this.supabase
       .from('orders')
       .insert({
         status,
+        version,
         order_type: orderType,
         payment_method: 'online',
         payment_status: 'pending',
         subtotal: 500,
-        tax_amount: 25,
+        tax: 25,
         delivery_fee: 30,
         discount_amount: 0,
         total_amount: 555,
@@ -267,6 +268,36 @@ export class DatabaseVerifier {
       return null
     }
     return data.id
+  }
+
+  public async getOrderVersion(orderId: string): Promise<number | null> {
+    if (!this.supabase) return null
+    const { data } = await this.supabase
+      .from('orders')
+      .select('version')
+      .eq('id', orderId)
+      .single()
+    return data?.version ?? null
+  }
+
+  public async getOrderOutboxEvents(orderId: string): Promise<any[]> {
+    if (!this.supabase) return []
+    const { data } = await this.supabase
+      .from('order_outbox_events')
+      .select('*')
+      .eq('aggregate_id', orderId)
+      .order('created_at', { ascending: true })
+    return data || []
+  }
+
+  public async getIdempotencyKeyRecord(key: string): Promise<any | null> {
+    if (!this.supabase) return null
+    const { data } = await this.supabase
+      .from('order_idempotency_keys')
+      .select('*')
+      .eq('idempotency_key', key)
+      .single()
+    return data || null
   }
 }
 

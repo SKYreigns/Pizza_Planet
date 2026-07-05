@@ -1,31 +1,33 @@
 'use server'
 
 // =============================================================================
-// Pizza Planet — Canonical Order Transition Server Action (Gate 3: SYS-07)
-// Authoritative single endpoint for all order state transitions.
-// Source of truth: API-Specification.md §6, MASTER_IMPLEMENTATION_CONFORMANCE_BLUEPRINT.md
+// Pizza Planet — Canonical Order Transition Server Action Adapter (Gate 3: SYS-07.5)
+// Authoritative thin endpoint adapter delegating to OrderApplicationService.
+// Source of truth: API-Specification.md §6, ORDER_AGGREGATE_ARCHITECTURE.md
 // =============================================================================
 
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth/getCurrentUser'
 import { getKitchenSession } from '@/lib/auth/getKitchenSession'
-import { evaluateOrderTransition } from '@/lib/orders/transitionEngine'
-import { emitDomainEvent } from '@/lib/orders/domainEvents'
-import { ALL_ORDER_STATES } from '@/lib/orders/stateDefinitions'
+import { orderApplicationService, isOrderServiceError } from '@/lib/orders/service'
+import { ALL_ORDER_STATES } from '@/lib/orders/states'
 import type { ActionResponse } from '@/types/order'
 import type { TransitionOrderInput, TransitionOrderResult, OrderStatus, ActorRole } from '@/types/order-status'
 
 const TransitionInputSchema = z.object({
   orderId: z.string().uuid('Invalid order ID format'),
   targetStatus: z.enum(ALL_ORDER_STATES as [string, ...string[]]) as unknown as z.ZodType<OrderStatus>,
+  expectedVersion: z.number().int().positive().optional(),
   reason: z.string().max(500).optional(),
   correlationId: z.string().max(100).optional(),
+  causationId: z.string().max(100).optional(),
+  idempotencyKey: z.string().max(150).optional(),
 })
 
 /**
- * Authoritative Server Action executing order status transitions.
- * Enforces Role Permissions, Legal State Graph, Business Rules, Audit Logging, and Event Emission.
+ * Authoritative Server Action adapter executing order status transitions.
+ * Resolves authentication context and delegates domain orchestration to OrderApplicationService.
  */
 export async function transitionOrderStatus(
   rawInput: TransitionOrderInput
@@ -40,7 +42,7 @@ export async function transitionOrderStatus(
     }
   }
 
-  const { orderId, targetStatus, reason, correlationId } = parseResult.data
+  const { orderId, targetStatus, expectedVersion, reason, correlationId, causationId, idempotencyKey } = parseResult.data
 
   // 2. Resolve Actor Role & ID
   let actorId: string | null = null
@@ -66,81 +68,33 @@ export async function transitionOrderStatus(
     }
   }
 
-  // 3. Fetch current order state from DB
+  // 3. Delegate to Application Service
   const supabase = await createClient()
-  const { data: order, error: fetchErr } = await supabase
-    .from('orders')
-    .select('id, status, order_type, customer_id')
-    .eq('id', orderId)
-    .single()
-
-  if (fetchErr || !order) {
-    return {
-      success: false,
-      error: fetchErr?.message || 'Order not found.',
-      code: 'ORDER_NOT_FOUND',
-    }
-  }
-
-  const currentStatus = order.status as OrderStatus
-  const orderType = order.order_type as 'delivery' | 'pickup'
-  const customerId = order.customer_id as string | null
-
-  // 4. Run through Transition Engine
-  const evaluation = evaluateOrderTransition({
-    orderId,
-    currentStatus,
-    targetStatus,
-    orderType,
-    customerId,
+  const result = await orderApplicationService.transitionOrder(
+    supabase,
+    {
+      orderId,
+      targetStatus,
+      expectedVersion,
+      reason,
+      correlationId,
+      causationId,
+      idempotencyKey,
+    },
     actorId,
-    actorRole,
-    reason,
-    correlationId,
-  })
+    actorRole
+  )
 
-  if (!evaluation.success || !evaluation.result) {
+  if (isOrderServiceError(result)) {
     return {
       success: false,
-      error: evaluation.error || 'Transition evaluation failed.',
-      code: evaluation.code || 'TRANSITION_REJECTED',
+      error: result.error,
+      code: result.code,
     }
-  }
-
-  // If no-op (currentStatus === targetStatus), return clean result immediately without DB write
-  if (evaluation.noop) {
-    return {
-      success: true,
-      data: evaluation.result,
-    }
-  }
-
-  // 5. Execute DB Transaction
-  // Note: Updating orders.status automatically triggers trg_orders_log_status_change
-  // which inserts into public.order_status_log!
-  const { error: updateErr } = await supabase
-    .from('orders')
-    .update({
-      status: targetStatus,
-    })
-    .eq('id', orderId)
-
-  if (updateErr) {
-    // Handle SQL trigger exceptions gracefully (e.g. if DB trigger rejected illegal jump)
-    return {
-      success: false,
-      error: updateErr.message,
-      code: updateErr.code || 'DB_UPDATE_FAILED',
-    }
-  }
-
-  // 6. Emit Domain Event asynchronously
-  if (evaluation.domainEvent) {
-    await emitDomainEvent(supabase, evaluation.domainEvent)
   }
 
   return {
     success: true,
-    data: evaluation.result,
+    data: result,
   }
 }

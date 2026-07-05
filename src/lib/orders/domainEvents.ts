@@ -1,6 +1,6 @@
 // =============================================================================
-// Pizza Planet — Canonical Order Domain Events (Gate 3: SYS-07)
-// Authoritative event generator and publisher for decoupled downstream consumers.
+// Pizza Planet — Canonical Order Domain Events (Gate 3: SYS-07.5)
+// Authoritative versioned event generator and publisher for decoupled downstream consumers.
 // Source of truth: PRD.md §Realtime, SystemArchitecture.md §Event Architecture
 // =============================================================================
 
@@ -37,15 +37,21 @@ export function buildDomainEvent(
   newStatus: OrderStatus,
   actorId: string | null,
   actorRole: ActorRole,
+  aggregateVersion: number,
   reason?: string,
-  correlationId?: string
+  correlationId?: string,
+  causationId?: string
 ): DomainEventPayload & { eventType: OrderDomainEventType } {
   const eventType = getDomainEventType(oldStatus, newStatus)
   const eventId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `evt_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+  const now = new Date().toISOString()
 
   return {
     eventId,
     eventType,
+    eventVersion: '1.0',
+    aggregateVersion,
+    schemaVersion: 1,
     orderId,
     oldStatus,
     newStatus,
@@ -53,12 +59,14 @@ export function buildDomainEvent(
     actorRole,
     reason,
     correlationId,
-    timestamp: new Date().toISOString(),
+    causationId,
+    occurredAt: now,
+    timestamp: now,
   }
 }
 
 /**
- * Emits the domain event to Supabase realtime and records in domain audit log if available.
+ * Emits the domain event to Supabase realtime channels.
  * Does not block transaction if downstream listeners fail.
  */
 export async function emitDomainEvent(

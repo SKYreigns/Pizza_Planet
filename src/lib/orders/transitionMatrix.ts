@@ -5,9 +5,9 @@
 // =============================================================================
 
 import type { OrderStatus, ActorRole, TransitionRule } from '@/types/order-status'
-import { ALL_ORDER_STATES, isTerminalState } from './stateDefinitions'
+import { ALL_ORDER_STATES, TERMINAL_STATES, isTerminalState } from './states'
 
-export const TERMINAL_STATES: readonly OrderStatus[] = ['delivered', 'cancelled', 'rejected']
+export { TERMINAL_STATES }
 
 export const TRANSITION_MATRIX: Record<OrderStatus, TransitionRule> = {
   pending_payment: {

@@ -1,11 +1,11 @@
 // =============================================================================
-// Pizza Planet — Canonical Order Transition Engine (Gate 3: SYS-07)
+// Pizza Planet — Canonical Order Transition Engine (Gate 3: SYS-07.5)
 // Authoritative single validation path for all order lifecycle updates.
 // Source of truth: PRD.md §Order Lifecycle, EngineeringStandards.md §6
 // =============================================================================
 
 import type { OrderStatus, ActorRole, TransitionOrderResult } from '@/types/order-status'
-import { isTerminalState } from './stateDefinitions'
+import { isTerminalState } from './states'
 import { isValidTransition, isAllowedActorForTransition, validateTransition } from './transitionMatrix'
 import { buildDomainEvent, type OrderDomainEventType } from './domainEvents'
 
@@ -17,8 +17,10 @@ export interface TransitionEngineInput {
   customerId: string | null
   actorId: string | null
   actorRole: ActorRole
+  aggregateVersion?: number
   reason?: string
   correlationId?: string
+  causationId?: string
 }
 
 export interface TransitionEngineResult {
@@ -34,6 +36,7 @@ export interface TransitionEngineResult {
     new_status: OrderStatus
     changed_by: string | null
     role: string
+    note?: string
   }
 }
 
@@ -50,13 +53,25 @@ export function evaluateOrderTransition(input: TransitionEngineInput): Transitio
     customerId,
     actorId,
     actorRole,
+    aggregateVersion = 1,
     reason,
     correlationId,
+    causationId,
   } = input
 
   // 1. Check no-op
   if (currentStatus === targetStatus) {
-    const domainEvent = buildDomainEvent(orderId, currentStatus, targetStatus, actorId, actorRole, reason, correlationId)
+    const domainEvent = buildDomainEvent(
+      orderId,
+      currentStatus,
+      targetStatus,
+      actorId,
+      actorRole,
+      aggregateVersion,
+      reason,
+      correlationId,
+      causationId
+    )
     return {
       success: true,
       noop: true,
@@ -64,10 +79,12 @@ export function evaluateOrderTransition(input: TransitionEngineInput): Transitio
         orderId,
         oldStatus: currentStatus,
         newStatus: targetStatus,
+        version: aggregateVersion,
         transitionedAt: new Date().toISOString(),
         actorId,
         actorRole,
         eventId: domainEvent.eventId,
+        noop: true,
       },
     }
   }
@@ -93,8 +110,19 @@ export function evaluateOrderTransition(input: TransitionEngineInput): Transitio
     }
   }
 
-  // 4. Build payloads
-  const domainEvent = buildDomainEvent(orderId, currentStatus, targetStatus, actorId, actorRole, reason, correlationId)
+  // 4. Build payloads for version + 1 mutation
+  const nextVersion = aggregateVersion + 1
+  const domainEvent = buildDomainEvent(
+    orderId,
+    currentStatus,
+    targetStatus,
+    actorId,
+    actorRole,
+    nextVersion,
+    reason,
+    correlationId,
+    causationId
+  )
 
   const auditRecord = {
     order_id: orderId,
@@ -102,6 +130,7 @@ export function evaluateOrderTransition(input: TransitionEngineInput): Transitio
     new_status: targetStatus,
     changed_by: actorId,
     role: actorRole,
+    note: reason,
   }
 
   return {
@@ -111,10 +140,12 @@ export function evaluateOrderTransition(input: TransitionEngineInput): Transitio
       orderId,
       oldStatus: currentStatus,
       newStatus: targetStatus,
+      version: nextVersion,
       transitionedAt: new Date().toISOString(),
       actorId,
       actorRole,
       eventId: domainEvent.eventId,
+      noop: false,
     },
     domainEvent,
     auditRecord,

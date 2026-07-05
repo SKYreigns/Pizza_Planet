@@ -1,7 +1,7 @@
 // =============================================================================
-// Pizza Planet — Canonical Order Status & State Machine Types (Gate 3: SYS-07)
-// Authoritative single source of truth for all order lifecycle states.
-// Source of truth: PRD.md, DatabaseDesign.md §2.1, API-Specification.md §6
+// Pizza Planet — Canonical Order Status & Aggregate Types (Gate 3: SYS-07.5)
+// Authoritative single source of truth for all order lifecycle states & aggregate model.
+// Source of truth: PRD.md, DatabaseDesign.md §2.1, ORDER_AGGREGATE_ARCHITECTURE.md
 // =============================================================================
 
 export type OrderStatus =
@@ -48,6 +48,9 @@ export interface TransitionRule {
 export interface DomainEventPayload {
   eventId: string
   eventType: string
+  eventVersion: string
+  aggregateVersion: number
+  schemaVersion: number
   orderId: string
   oldStatus: OrderStatus
   newStatus: OrderStatus
@@ -55,22 +58,48 @@ export interface DomainEventPayload {
   actorRole: ActorRole
   reason?: string
   correlationId?: string
+  causationId?: string
+  occurredAt: string
   timestamp: string
 }
 
 export interface TransitionOrderInput {
   orderId: string
   targetStatus: OrderStatus
+  expectedVersion?: number
   reason?: string
   correlationId?: string
+  causationId?: string
+  idempotencyKey?: string
 }
 
 export interface TransitionOrderResult {
   orderId: string
   oldStatus: OrderStatus
   newStatus: OrderStatus
+  version: number
   transitionedAt: string
   actorId: string | null
   actorRole: ActorRole
   eventId: string
+  noop?: boolean
+}
+
+export interface OrderAggregate {
+  id: string
+  shortId: string
+  orderType: 'delivery' | 'pickup'
+  customerId: string | null
+  customerName: string
+  customerPhone: string
+  status: OrderStatus
+  version: number
+  paymentMethod: string
+  paymentStatus: string
+  subtotal: number
+  tax: number
+  deliveryFee: number
+  totalAmount: number
+  trackingToken: string
+  createdAt: string
 }

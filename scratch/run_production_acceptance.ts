@@ -29,6 +29,7 @@ import { SessionPersistenceSuite } from './acceptance/sessions/sessionSuite'
 import { RateLimitAndSecuritySuite } from './acceptance/security/rateLimitSuite'
 import { StoreHoursGuardSuite } from './acceptance/settings/storeHoursGuardSuite'
 import { StateMachineSuite } from './acceptance/orders/stateMachineSuite'
+import { OrderAggregateSuite } from './acceptance/orders/orderAggregateSuite'
 
 const BASE_URL = process.env.TEST_URL || 'http://localhost:3000'
 const ARTIFACTS_DIR = path.resolve('C:/Users/lapto/.gemini/antigravity-ide/brain/95d7ebb0-dc25-474d-a19c-6a9b8c0bbdf3')
@@ -151,6 +152,21 @@ async function runMasterAcceptanceFramework() {
     const gate3Suite = new StateMachineSuite(browser, net, cookies, db, perf, BASE_URL)
     const gate3Results = await gate3Suite.runSuite()
     for (const r of gate3Results) {
+      reportGen.addVerification(r)
+      console.log(`[${r.status}] [${r.testId}] ${r.name}`)
+      if (r.databaseTraces.length > 0) {
+        dbCheckCount += r.databaseTraces.length
+        dbConsistentCount += r.databaseTraces.filter(d => d.sessionConsistent).length
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // 6.7 Gate 3 Order Aggregate Hardening Suite (SYS-07.5)
+    // -------------------------------------------------------------------------
+    console.log('\n--- Executing Suite 6.7: Gate 3 Order Aggregate Hardening (OCC, Idempotency, Outbox) ---')
+    const gate35Suite = new OrderAggregateSuite(browser, net, cookies, db, perf, BASE_URL)
+    const gate35Results = await gate35Suite.runSuite()
+    for (const r of gate35Results) {
       reportGen.addVerification(r)
       console.log(`[${r.status}] [${r.testId}] ${r.name}`)
       if (r.databaseTraces.length > 0) {

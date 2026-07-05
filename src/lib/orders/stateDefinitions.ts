@@ -1,10 +1,14 @@
 // =============================================================================
-// Pizza Planet — Canonical Order State Definitions (Gate 3: SYS-07)
-// Authoritative single source of truth for display labels, UI colors, and descriptions.
+// Pizza Planet — Canonical Order Presentation Mapping (Gate 3: SYS-07.5)
+// Authoritative single source of truth for UI display labels, badge colors, and icons.
 // Source of truth: PRD.md §Order Lifecycle, DatabaseDesign.md §2.1
 // =============================================================================
 
 import type { OrderStatus, OrderStateDefinition } from '@/types/order-status'
+import { ALL_ORDER_STATES, isTerminalState, type OrderStateCategory } from './states'
+
+export { ALL_ORDER_STATES, isTerminalState }
+export type { OrderStateCategory }
 
 export const ORDER_STATE_DEFINITIONS: Record<OrderStatus, OrderStateDefinition> = {
   pending_payment: {
@@ -48,7 +52,7 @@ export const ORDER_STATE_DEFINITIONS: Record<OrderStatus, OrderStateDefinition> 
     badgeBg: 'bg-emerald-500/10 dark:bg-emerald-500/20',
     badgeText: 'text-emerald-700 dark:text-emerald-300',
     badgeBorder: 'border-emerald-500/20 dark:border-emerald-500/30',
-    description: 'Order cooked, boxed, and ready at the counter or for driver dispatch.',
+    description: 'Order is boxed and ready at counter or for rider pickup.',
     isTerminal: false,
   },
   out_for_delivery: {
@@ -59,7 +63,7 @@ export const ORDER_STATE_DEFINITIONS: Record<OrderStatus, OrderStateDefinition> 
     badgeBg: 'bg-purple-500/10 dark:bg-purple-500/20',
     badgeText: 'text-purple-700 dark:text-purple-300',
     badgeBorder: 'border-purple-500/20 dark:border-purple-500/30',
-    description: 'Delivery rider has collected the order and is en route to customer.',
+    description: 'Delivery rider is en route to customer destination.',
     isTerminal: false,
   },
   delivered: {
@@ -67,9 +71,9 @@ export const ORDER_STATE_DEFINITIONS: Record<OrderStatus, OrderStateDefinition> 
     label: 'Delivered',
     category: 'terminal',
     color: 'green',
-    badgeBg: 'bg-green-600/10 dark:bg-green-600/20',
-    badgeText: 'text-green-800 dark:text-green-300',
-    badgeBorder: 'border-green-600/20 dark:border-green-600/30',
+    badgeBg: 'bg-green-500/10 dark:bg-green-500/20',
+    badgeText: 'text-green-700 dark:text-green-300',
+    badgeBorder: 'border-green-500/20 dark:border-green-500/30',
     description: 'Order successfully delivered or picked up by customer.',
     isTerminal: true,
   },
@@ -97,21 +101,6 @@ export const ORDER_STATE_DEFINITIONS: Record<OrderStatus, OrderStateDefinition> 
   },
 }
 
-export const ALL_ORDER_STATES: readonly OrderStatus[] = [
-  'pending_payment',
-  'confirmed',
-  'preparing',
-  'ready',
-  'out_for_delivery',
-  'delivered',
-  'cancelled',
-  'rejected',
-] as const
-
 export function getOrderStateDefinition(status: OrderStatus): OrderStateDefinition {
   return ORDER_STATE_DEFINITIONS[status] || ORDER_STATE_DEFINITIONS.pending_payment
-}
-
-export function isTerminalState(status: OrderStatus): boolean {
-  return ORDER_STATE_DEFINITIONS[status]?.isTerminal ?? false
 }
