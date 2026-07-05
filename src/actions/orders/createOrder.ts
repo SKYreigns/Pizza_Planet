@@ -24,6 +24,7 @@ import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth/getCurrentUser'
 import type { ActionResponse, CreateOrderResult } from '@/types/order'
+import type { StoreSettings } from '@/types/settings'
 
 // ─── Zod schemas ─────────────────────────────────────────────────────────────
 
@@ -66,13 +67,6 @@ const CreateOrderInputSchema = z.object({
 type CreateOrderInput = z.infer<typeof CreateOrderInputSchema>
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-
-interface StoreSettings {
-  delivery_fee: number
-  free_delivery_threshold: number
-  tax_rate_percent: number
-  cod_max_order_amount: number
-}
 
 function calculateTax(subtotal: number, taxRatePercent: number): number {
   return Math.round((subtotal * taxRatePercent) / 100)
@@ -142,10 +136,10 @@ export async function createOrder(
   const authResult = await getCurrentUser()
   const customerId = authResult.success ? authResult.data.id : null
 
-  // ── Step 4: Fetch store settings for tax/fee calculation ──────────────────
+  // ── Step 4: Fetch store settings for tax/fee calculation & Gate 2 guard ──
   const { data: settingsRow, error: settingsError } = await supabase
     .from('store_settings')
-    .select('delivery_fee, free_delivery_threshold, tax_rate_percent, cod_max_order_amount')
+    .select('is_open, delivery_fee, free_delivery_threshold, tax_rate_percent, cod_max_order_amount')
     .eq('id', 1)
     .single()
 
@@ -158,6 +152,14 @@ export async function createOrder(
   }
 
   const settings: StoreSettings = settingsRow as StoreSettings
+
+  if (!settings.is_open) {
+    return {
+      success: false,
+      error: 'The restaurant is currently closed. We are not accepting online orders at this time.',
+      code: 'STORE_CLOSED',
+    }
+  }
 
   // ── Step 5: Re-validate each product/variant/option against the database ──
   const productIds = input.items.map((i) => i.productId)

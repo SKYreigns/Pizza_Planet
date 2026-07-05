@@ -92,6 +92,21 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
+  // Gate 2: Store Operating Rules Guard — Block navigation to checkout when store is closed
+  if (pathname.startsWith('/checkout')) {
+    const { data: settings } = await supabase
+      .from('store_settings')
+      .select('is_open')
+      .eq('id', 1)
+      .single()
+
+    if (settings && settings.is_open === false) {
+      const menuUrl = new URL('/menu', request.url)
+      menuUrl.searchParams.set('reason', 'store_closed')
+      return NextResponse.redirect(menuUrl)
+    }
+  }
+
   // Resolve the applicable route guard (null = public route)
   const guard = getRouteGuard(pathname)
 

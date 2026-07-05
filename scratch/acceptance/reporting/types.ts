@@ -41,7 +41,7 @@ export interface CookieTrace {
 }
 
 export interface DatabaseVerificationTrace {
-  tableChecked: 'auth.users' | 'profiles' | 'kitchen_staff'
+  tableChecked: 'auth.users' | 'profiles' | 'kitchen_staff' | 'orders' | 'order_status_log' | string
   recordIdentifier: string
   found: boolean
   verifiedFields: Record<string, any>

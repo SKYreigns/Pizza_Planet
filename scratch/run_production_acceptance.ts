@@ -27,6 +27,8 @@ import { KitchenAuthSuite } from './acceptance/kitchen/kitchenAuthSuite'
 import { RbacRouteSuite } from './acceptance/middleware/rbacSuite'
 import { SessionPersistenceSuite } from './acceptance/sessions/sessionSuite'
 import { RateLimitAndSecuritySuite } from './acceptance/security/rateLimitSuite'
+import { StoreHoursGuardSuite } from './acceptance/settings/storeHoursGuardSuite'
+import { StateMachineSuite } from './acceptance/orders/stateMachineSuite'
 
 const BASE_URL = process.env.TEST_URL || 'http://localhost:3000'
 const ARTIFACTS_DIR = path.resolve('C:/Users/lapto/.gemini/antigravity-ide/brain/95d7ebb0-dc25-474d-a19c-6a9b8c0bbdf3')
@@ -125,6 +127,36 @@ async function runMasterAcceptanceFramework() {
     for (const r of rateResults) {
       reportGen.addVerification(r)
       console.log(`[${r.status}] [${r.testId}] ${r.name}`)
+    }
+
+    // -------------------------------------------------------------------------
+    // 6.5 Gate 2 Store Operating Rules Guard Suite (SYS-02-WP-001)
+    // -------------------------------------------------------------------------
+    console.log('\n--- Executing Suite 6.5: Gate 2 Store Operating Rules Guard ---')
+    const gate2Suite = new StoreHoursGuardSuite(browser, net, cookies, db, perf, BASE_URL)
+    const gate2Results = await gate2Suite.runSuite()
+    for (const r of gate2Results) {
+      reportGen.addVerification(r)
+      console.log(`[${r.status}] [${r.testId}] ${r.name}`)
+      if (r.databaseTraces.length > 0) {
+        dbCheckCount += r.databaseTraces.length
+        dbConsistentCount += r.databaseTraces.filter(d => d.sessionConsistent).length
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // 6.6 Gate 3 Canonical Order State Machine Suite (SYS-07-WP-001)
+    // -------------------------------------------------------------------------
+    console.log('\n--- Executing Suite 6.6: Gate 3 Canonical Order State Machine ---')
+    const gate3Suite = new StateMachineSuite(browser, net, cookies, db, perf, BASE_URL)
+    const gate3Results = await gate3Suite.runSuite()
+    for (const r of gate3Results) {
+      reportGen.addVerification(r)
+      console.log(`[${r.status}] [${r.testId}] ${r.name}`)
+      if (r.databaseTraces.length > 0) {
+        dbCheckCount += r.databaseTraces.length
+        dbConsistentCount += r.databaseTraces.filter(d => d.sessionConsistent).length
+      }
     }
 
     // -------------------------------------------------------------------------

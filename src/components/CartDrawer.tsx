@@ -5,17 +5,21 @@ import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, ShoppingBag, ArrowRight, Trash2, Sparkles, Truck } from 'lucide-react'
 import { useCartStore } from '@/stores/cart-store'
+import { useSettingsStore } from '@/stores/settings-store'
 import { CartItemCard } from '@/features/cart/components/CartItemCard'
 import { FREE_DELIVERY_THRESHOLD, DELIVERY_FEE_PAISA } from '@/lib/constants/pricing'
 import { cn } from '@/lib/utils'
 
 export function CartDrawer() {
   const { items, isOpen, closeCart, clearCart, getSubtotal } = useCartStore()
+  const { settings, initialize } = useSettingsStore()
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
     setMounted(true)
-  }, [])
+    initialize()
+  }, [initialize])
+
 
   if (!mounted) return null
 
@@ -160,14 +164,28 @@ export function CartDrawer() {
                 </div>
 
                 <div className="flex flex-col gap-2.5">
-                  <Link
-                    href="/checkout"
-                    onClick={closeCart}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-[#C93A2F] text-white font-bold py-4 text-base shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 hover:scale-[1.01] active:scale-[0.99] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-                  >
-                    <span>Proceed to Checkout</span>
-                    <ArrowRight className="h-5 w-5" />
-                  </Link>
+                  {settings && !settings.is_open ? (
+                    <div className="flex flex-col gap-1.5">
+                      <button
+                        disabled
+                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-muted text-muted-foreground font-bold py-4 text-base cursor-not-allowed border border-border opacity-80"
+                      >
+                        <span>Ordering Closed — Kitchen Offline</span>
+                      </button>
+                      <p className="text-[11px] text-center text-amber-600 dark:text-amber-400 font-medium">
+                        Online ordering is temporarily unavailable while our kitchen is closed.
+                      </p>
+                    </div>
+                  ) : (
+                    <Link
+                      href="/checkout"
+                      onClick={closeCart}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-[#C93A2F] text-white font-bold py-4 text-base shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 hover:scale-[1.01] active:scale-[0.99] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                    >
+                      <span>Proceed to Checkout</span>
+                      <ArrowRight className="h-5 w-5" />
+                    </Link>
+                  )}
 
                   <div className="flex items-center justify-between gap-2 pt-1">
                     <Link

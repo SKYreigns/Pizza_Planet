@@ -3,15 +3,8 @@
 // Source of truth: DatabaseDesign.md §2.3, API-Specification.md §6–7
 // =============================================================================
 
-export type OrderStatus =
-  | 'pending_payment'
-  | 'confirmed'
-  | 'preparing'
-  | 'ready'
-  | 'out_for_delivery'
-  | 'delivered'
-  | 'cancelled'
-  | 'rejected'
+import type { OrderStatus } from '@/types/order-status'
+export type { OrderStatus }
 
 export type PaymentMethod = 'online' | 'cod'
 export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded'

@@ -210,4 +210,63 @@ export class DatabaseVerifier {
       }
     }
   }
+
+  public getClient(): SupabaseClient | null {
+    return this.supabase
+  }
+
+  public async setStoreOpen(isOpen: boolean): Promise<boolean> {
+    if (!this.supabase) return false
+    const { error } = await this.supabase
+      .from('store_settings')
+      .update({ is_open: isOpen })
+      .eq('id', 1)
+    return !error
+  }
+
+  public async getOrderStatusLog(orderId: string): Promise<any[]> {
+    if (!this.supabase) return []
+    const { data } = await this.supabase
+      .from('order_status_log')
+      .select('*')
+      .eq('order_id', orderId)
+      .order('created_at', { ascending: true })
+    return data || []
+  }
+
+  public async getOrderStatus(orderId: string): Promise<string | null> {
+    if (!this.supabase) return null
+    const { data } = await this.supabase
+      .from('orders')
+      .select('status')
+      .eq('id', orderId)
+      .single()
+    return data?.status || null
+  }
+
+  public async seedTestOrder(status: string = 'pending_payment', orderType: string = 'delivery'): Promise<string | null> {
+    if (!this.supabase) return null
+    const { data, error } = await this.supabase
+      .from('orders')
+      .insert({
+        status,
+        order_type: orderType,
+        payment_method: 'online',
+        payment_status: 'pending',
+        subtotal: 500,
+        tax_amount: 25,
+        delivery_fee: 30,
+        discount_amount: 0,
+        total_amount: 555,
+        delivery_address: { flat: '101', area: 'Test Area', city: 'Mumbai' },
+      })
+      .select('id')
+      .single()
+    if (error || !data) {
+      console.warn('⚠️ [DatabaseVerifier] Failed to seed test order:', error?.message)
+      return null
+    }
+    return data.id
+  }
 }
+
